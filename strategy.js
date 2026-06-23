@@ -9,6 +9,7 @@ let _stratExpanded   = new Set();   // 펼쳐진 항목 id
 let _stratSimplified = {};          // id → 쉬운 말 결과
 let _stratClassifying = false;
 let _stratPendingSchedule = null;   // 일정 등록 모달 대상 id
+let _stratHelpPending = null;       // 도움 입력 모달 대상 id
 
 const STRAT_AREAS = ['주거', '생활', '의료', '교육', '취업', '돌봄'];
 const AREA_COLOR  = { 주거:'#3B82F6', 생활:'#00C896', 의료:'#EF4444', 교육:'#F59E0B', 취업:'#6366F1', 돌봄:'#EC4899' };
@@ -44,7 +45,7 @@ function renderStrategy() {
   const cats = _stratLoadCategories();
   const counts = {}; STRAT_AREAS.forEach(a => counts[a] = 0);
   interests.forEach(i => { const c = cats[i.service_id || i.name]; if (counts[c] != null) counts[c]++; });
-  const consultSet = new Set(_navGetConsult().map(x => x.name));
+  const consultSet = new Set(((typeof _loadHelpReqs === 'function') ? _loadHelpReqs() : []).map(r => r.benefit_name));
   const schedSet   = new Set(_navGetSchedule().map(x => x.name));
 
   el.innerHTML = `
@@ -164,15 +165,65 @@ async function _stratSimplify(id) {
   renderStrategy();
 }
 
-// ── 도움 필요(상담 요청) ──────────────────────────────────────────────
+// ── 도움 필요 — 이미 요청됨이면 취소, 아니면 도움 내용 입력 모달 ──────
 function _stratConsult(id) {
   const it = _stratInterests().find(x => (x.service_id || x.name) === id);
   if (!it) return;
-  const items = _navGetConsult();
-  if (items.find(x => x.name === it.name)) { toast('이미 도움을 요청했어요', 'info'); return; }
-  items.push({ id: Date.now(), name: it.name, amount: it.amount || '', desc: it.description || '', agency: it.agency || '', apply_url: it.apply_url || '' });
-  _navSetConsult(items);
-  toast('도움 요청이 등록됐어요 📞 담당자가 안내해드려요', 'success');
+  let reqs = (typeof _loadHelpReqs === 'function') ? _loadHelpReqs() : [];
+
+  // 이미 요청 → 취소
+  if (reqs.some(r => r.benefit_name === it.name)) {
+    reqs = reqs.filter(r => r.benefit_name !== it.name);
+    localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+    if (ME) { try { sb.from('benefit_help_requests').delete().eq('user_id', ME.id).eq('benefit_name', it.name); } catch (_) {} }
+    toast('도움 요청을 취소했어요');
+    renderStrategy();
+    return;
+  }
+
+  // 도움 내용 입력 모달
+  _stratHelpPending = id;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'strat-help-modal';
+  overlay.onclick = (e) => { if (e.target === overlay) _stratCloseHelpModal(); };
+  overlay.innerHTML = `<div class="modal-box">
+    <div class="modal-title">📞 신청 도움받기</div>
+    <div class="modal-sub">${esc(it.name)}</div>
+    <label class="modal-label">어떤 도움이 필요하세요? (선택)</label>
+    <textarea id="strat-help-text" class="pf-input" rows="3" style="width:100%;resize:none" placeholder="예: 신청 방법을 모르겠어요 / 서류 준비가 어려워요 / 방문이 힘들어요"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="_stratCloseHelpModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1" onclick="_stratHelpConfirm()">요청 보내기</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('strat-help-text')?.focus(), 80);
+}
+function _stratCloseHelpModal() {
+  document.getElementById('strat-help-modal')?.remove();
+  _stratHelpPending = null;
+}
+async function _stratHelpConfirm() {
+  const it = _stratInterests().find(x => (x.service_id || x.name) === _stratHelpPending);
+  if (!it) { _stratCloseHelpModal(); return; }
+  const note = document.getElementById('strat-help-text')?.value.trim() || '';
+  const p = MY_PROFILE || {};
+  const region = [p.region, p.district].filter(Boolean).join(' ');
+
+  const reqs = (typeof _loadHelpReqs === 'function') ? _loadHelpReqs() : [];
+  reqs.push({ benefit_name: it.name, agency_name: it.agency || '', region, note, requested_at: new Date().toISOString() });
+  localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+  if (ME) {
+    try {
+      await sb.from('benefit_help_requests').insert({
+        user_id: ME.id, benefit_name: it.name, agency_name: it.agency || '', region,
+        status: 'pending', profile_snapshot: { ...p, help_note: note },
+      });
+    } catch (e) { console.warn('help insert 실패(테이블 미생성 가능):', e.message); }
+  }
+  _stratCloseHelpModal();
+  toast('담당 기관에 도움을 요청했어요 📞 곧 안내해드릴게요', 'success');
   renderStrategy();
 }
 

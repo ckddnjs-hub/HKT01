@@ -93,15 +93,15 @@ function renderDashboard() {
                 <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px">${esc(b.agency || '')}${b.dept ? ' · ' + esc(b.dept) : ''}</div>
               </div>
             </div>
-            <div class="ws-status-row">
-              <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 받는 중</button>
-              <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
-              <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
-            </div>
             ${_dashSimplified[sid] ? `<div class="ws-easy">🟢 <b>쉬운 설명</b><br>${esc(_dashSimplified[sid])}</div>` : ''}
             <div class="ws-detail-row">
               <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운 말로</button>
               <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 보기 →</button>
+            </div>
+            <div class="ws-status-row">
+              <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 받는 중</button>
+              <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
+              <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
             </div>
           </div>`;
         }).join('') : `

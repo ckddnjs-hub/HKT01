@@ -8,6 +8,8 @@ let _chatStreaming = false;
 let _chatTab       = 'ai';
 let _advThreadId   = null;   // /advise/start 에서 발급된 thread_id (멀티턴 유지)
 let _advCards      = [];     // 최근 추천 카드 (카드별 관심/도움 액션용)
+let _advHelpPending = null;   // 도움 입력 모달 대상 카드 idx
+let _advHelpBtn     = null;   // 도움 버튼 DOM 참조 (모달 확인 후 상태 갱신)
 
 // ── 전체 채팅 페이지 렌더 ────────────────────────────────────────────
 function renderChat() {
@@ -301,16 +303,24 @@ function _advRenderCards(cards) {
     </div>`).join('') + `</div>`;
 }
 
-// 카드 → 관심(전략보드 추가)
+// 카드 → 관심 토글(전략보드 추가/해제)
 function _advInterest(idx, btn) {
   const c = _advCards[idx];
   if (!c) return;
   const id = c.service_name;
-  const interests = _wsLoadInterests();
+  let interests = _wsLoadInterests();
+  const st = _wsLoadStatus();
+
+  // 이미 관심 → 해제
   if (interests.some(i => (i.service_id || i.name) === id)) {
-    if (btn) { btn.classList.add('on'); btn.textContent = '⭐ 관심됨'; }
-    toast('이미 관심에 추가했어요', 'info'); return;
+    interests = interests.filter(i => (i.service_id || i.name) !== id);
+    _wsSaveInterests(interests);
+    if (st[id] === 'interested') { delete st[id]; _wsSaveStatus(st); }
+    if (btn) { btn.classList.remove('on'); btn.textContent = '⭐ 관심'; }
+    toast('관심을 해제했어요');
+    return;
   }
+
   interests.push({
     service_id: id,
     name: c.service_name,
@@ -323,31 +333,74 @@ function _advInterest(idx, btn) {
     how_to_apply: c.apply_method || '',
   });
   _wsSaveInterests(interests);
-  const st = _wsLoadStatus(); st[id] = 'interested'; _wsSaveStatus(st);
+  st[id] = 'interested'; _wsSaveStatus(st);
   if (btn) { btn.classList.add('on'); btn.textContent = '⭐ 관심됨'; }
   toast('⭐ 전략보드에 추가했어요', 'success');
 }
 
-// 카드 → 도움받기(해당 혜택만 담당기관 요청)
-async function _advHelp(idx, btn) {
+// 카드 → 도움받기 (이미 요청됨이면 취소, 아니면 도움 내용 입력 모달)
+function _advHelp(idx, btn) {
   const c = _advCards[idx];
   if (!c) return;
-  const name = c.service_name, agency = c.receiving_agency || '';
-  const reqs = _loadHelpReqs();
+  const name = c.service_name;
+  let reqs = _loadHelpReqs();
+
+  // 이미 요청 → 취소
   if (reqs.some(r => r.benefit_name === name)) {
-    if (btn) { btn.classList.add('on'); btn.textContent = '✅ 도움요청됨'; }
-    toast('이미 도움을 요청했어요', 'info'); return;
+    reqs = reqs.filter(r => r.benefit_name !== name);
+    localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+    if (ME) { try { sb.from('benefit_help_requests').delete().eq('user_id', ME.id).eq('benefit_name', name); } catch (_) {} }
+    if (btn) { btn.classList.remove('on'); btn.textContent = '📞 도움받기'; }
+    toast('도움 요청을 취소했어요');
+    return;
   }
+
+  // 도움 내용 입력 모달
+  _advHelpPending = idx;
+  _advHelpBtn = btn;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'adv-help-modal';
+  overlay.onclick = (e) => { if (e.target === overlay) _advCloseHelpModal(); };
+  overlay.innerHTML = `<div class="modal-box">
+    <div class="modal-title">📞 신청 도움받기</div>
+    <div class="modal-sub">${esc(c.service_name)}</div>
+    <label class="modal-label">어떤 도움이 필요하세요? (선택)</label>
+    <textarea id="adv-help-text" class="pf-input" rows="3" style="width:100%;resize:none" placeholder="예: 신청 방법을 모르겠어요 / 서류 준비가 어려워요 / 방문이 힘들어요"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="_advCloseHelpModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1" onclick="_advHelpConfirm()">요청 보내기</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('adv-help-text')?.focus(), 80);
+}
+function _advCloseHelpModal() {
+  document.getElementById('adv-help-modal')?.remove();
+  _advHelpPending = null; _advHelpBtn = null;
+}
+async function _advHelpConfirm() {
+  const c = _advCards[_advHelpPending];
+  if (!c) { _advCloseHelpModal(); return; }
+  const note = document.getElementById('adv-help-text')?.value.trim() || '';
+  const name = c.service_name, agency = c.receiving_agency || '';
   const p = MY_PROFILE || {};
   const region = [p.region, p.district].filter(Boolean).join(' ');
-  reqs.push({ benefit_name: name, agency_name: agency, region, requested_at: new Date().toISOString() });
+
+  const reqs = _loadHelpReqs();
+  reqs.push({ benefit_name: name, agency_name: agency, region, note, requested_at: new Date().toISOString() });
   localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
-  if (btn) { btn.classList.add('on'); btn.textContent = '✅ 도움요청됨'; }
+  if (_advHelpBtn) { _advHelpBtn.classList.add('on'); _advHelpBtn.textContent = '✅ 도움요청됨'; }
   if (ME) {
-    try { await sb.from('benefit_help_requests').insert({ user_id: ME.id, benefit_name: name, agency_name: agency, region, profile_snapshot: p, status: 'pending' }); }
-    catch (e) { console.warn('help insert 실패(테이블 미생성 가능):', e.message); }
+    try {
+      await sb.from('benefit_help_requests').insert({
+        user_id: ME.id, benefit_name: name, agency_name: agency, region,
+        status: 'pending', profile_snapshot: { ...p, help_note: note },
+      });
+    } catch (e) { console.warn('help insert 실패(테이블 미생성 가능):', e.message); }
   }
-  toast('담당 기관에 신청 도움을 요청했어요 📞', 'success');
+  _advCloseHelpModal();
+  toast('담당 기관에 도움을 요청했어요 📞 곧 안내해드릴게요', 'success');
 }
 
 // ── 복지사 전달 패킷 렌더 ────────────────────────────────────────────

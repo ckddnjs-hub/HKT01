@@ -110,7 +110,11 @@ function setFontScale(px) {
   _applyFontScale(px);
   if (currentPage === 'profile') renderProfilePage();
 }
-_applyFontScale(parseInt(localStorage.getItem('font_scale')) || 16);
+(function () {
+  let px = parseInt(localStorage.getItem('font_scale')) || 18;
+  if (px < 18) { px = 18; try { localStorage.setItem('font_scale', '18'); } catch (_) {} } // 옛 보통(16) → 새 보통(18)
+  _applyFontScale(px);
+})();
 
 // ── 푸시 알림 ON/OFF ─────────────────────────────────────────────────
 async function setPush(on) {
@@ -193,7 +197,7 @@ function renderProfilePage() {
 
   const lightOn = document.body.classList.contains('light');
   const pushOn  = localStorage.getItem('push_enabled') === '1';
-  const fs      = parseInt(localStorage.getItem('font_scale')) || 16;
+  const fs      = parseInt(localStorage.getItem('font_scale')) || 18;
 
   el.innerHTML = `
     <div style="padding:24px 16px 0;text-align:center">
@@ -247,9 +251,9 @@ function renderProfilePage() {
         <div class="set-row">
           <span class="set-label">글자 크기</span>
           <div class="seg">
-            <button class="btn btn-sm ${fs === 16 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(16)">보통</button>
-            <button class="btn btn-sm ${fs === 18 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(18)">크게</button>
-            <button class="btn btn-sm ${fs === 20 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(20)">더크게</button>
+            <button class="btn btn-sm ${fs === 18 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(18)">보통</button>
+            <button class="btn btn-sm ${fs === 20 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(20)">크게</button>
+            <button class="btn btn-sm ${fs === 22 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(22)">더크게</button>
           </div>
         </div>
       </div>

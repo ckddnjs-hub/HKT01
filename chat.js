@@ -30,19 +30,18 @@ function renderChat() {
   const page = document.getElementById('page-chat');
   if (!page) return;
 
-  // 탭 헤더 + 메시지 영역 + 입력창
+  _chatTab = 'ai'; // AI 상담 단일 화면
+
+  // 헤더 + 메시지 영역 + 입력창
   page.innerHTML = `
     <div class="chat-tab-bar">
-      <button class="chat-tab-btn${_chatTab === 'ai' ? ' active' : ''}" data-tab="ai"
-        onclick="switchChatTab('ai')">🤖 AI 상담</button>
-      <button class="chat-tab-btn${_chatTab === 'gov' ? ' active' : ''}" data-tab="gov"
-        onclick="switchChatTab('gov')">🏛️ 복지로 검색</button>
+      <div class="chat-single-title">🤖 AI 복지 상담</div>
     </div>
     <div class="chat-messages" id="chat-messages"></div>
     <div style="height:calc(170px + env(safe-area-inset-bottom,0px))"></div>
     <div class="chat-input-bar">
       <textarea id="chat-input" class="chat-input" rows="1"
-        placeholder="${_chatTab === 'gov' ? '예: 나한테 맞는 복지 혜택 알려줘' : '예: 출산 후 받을 수 있는 혜택 알려줘'}"
+        placeholder="예: 출산 후 받을 수 있는 혜택 알려줘"
         onkeydown="chatOnKeydown(event)"></textarea>
       <button class="chat-send-btn" onclick="chatSend()">↑</button>
     </div>

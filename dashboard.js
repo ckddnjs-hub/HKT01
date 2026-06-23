@@ -128,17 +128,6 @@ function renderDashboard() {
           `}
         </div>`}
 
-      <!-- AI 채팅 빠른 접근 -->
-      <div class="section-title">💬 AI에게 물어보세요</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-        ${['출산 후 받을 수 있는 혜택 알려줘', '월세 지원 혜택 있어?', '취업 준비 중인데 받을 수 있는 혜택은?'].map(q => `
-          <button class="card" style="text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px" onclick="chatQuickQuery('${esc(q)}')">
-            <span style="font-size:1.1rem">💬</span>
-            <span style="font-size:.85rem;font-weight:600">${esc(q)}</span>
-            <span style="margin-left:auto;color:var(--text-dim)">›</span>
-          </button>`).join('')}
-      </div>
-
       <div style="height:16px"></div>
     </div>
   `;

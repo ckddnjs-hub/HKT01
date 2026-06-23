@@ -402,6 +402,7 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .intr-btn-row{display:flex;gap:8px;margin-bottom:8px}
 .intr-easy-btn{flex:1;font-size:.76rem;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;cursor:pointer;transition:all .15s}
 .intr-easy-btn:active{transform:scale(.97)}
+.intr-easy-btn.on{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700}
 .intr-act-row{display:flex;gap:8px}
 .intr-act{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:.78rem;font-weight:700;padding:9px;border-radius:8px;border:1px solid var(--border);background:transparent;font-family:inherit;cursor:pointer;color:var(--text)}
 .intr-act:active{transform:scale(.97)}
@@ -539,4 +540,7 @@ body.light .toast{background:var(--text);color:var(--bg);border-color:transparen
 .toast.success{border-color:var(--success);color:var(--success)}
 .toast.error{border-color:var(--danger);color:var(--danger)}
 .toast.info{border-color:var(--accent);color:var(--accent)}
-body.light .toast.success,.toast.error,.toast.info{background:var(--bg2)}
+/* 라이트모드: 중립 배경 + 컬러 글씨 (흰글씨 가독성 버그 수정) */
+body.light .toast.success{background:var(--bg2);color:var(--success)}
+body.light .toast.error{background:var(--bg2);color:var(--danger)}
+body.light .toast.info{background:var(--bg2);color:var(--accent)}

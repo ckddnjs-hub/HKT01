@@ -173,6 +173,8 @@ async function loadWelfareList() {
       name:         s.name,
       category:     _fieldToCategory(s.field, s.name),
       description:  (s.content || '').replace(/\r\n|\r|\n/g, ' ').slice(0, 90),
+      content_full: [s.content, s.target ? `\n\n[지원대상] ${s.target}` : '', s.method ? `\n[신청방법] ${s.method}` : '']
+                      .filter(Boolean).join('').replace(/\r\n|\r/g, '\n').slice(0, 600),
       amount:       _extractAmount(s.content),
       urgency:      Math.max(1, Math.min(9, 9 - Math.floor(i / 5))),
       impact:       7,

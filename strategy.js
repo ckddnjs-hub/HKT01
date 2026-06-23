@@ -7,6 +7,7 @@
 
 let _radarChart      = null;
 let _stratExpanded   = new Set();   // 펼쳐진 항목 id
+let _stratDetailOpen = new Set();   // "자세히 보기" 펼친 항목 id
 let _stratSimplified = {};          // id → 쉬운 말 결과
 let _stratClassifying = false;
 
@@ -98,6 +99,7 @@ function _renderInterestGrouped(interests, cats) {
 function _stratItemHTML(i, area) {
   const id = i.service_id || i.name;
   const open = _stratExpanded.has(id);
+  const detailOpen = _stratDetailOpen.has(id);
   const easy = _stratSimplified[id];
   const today = new Date().toISOString().split('T')[0];
 
@@ -113,12 +115,12 @@ function _stratItemHTML(i, area) {
       </div>
       ${open ? `
         <div class="intr-body">
-          <div class="intr-desc">${esc(i.description || '간략한 설명 정보가 없어요. "자세히"로 원문을 확인하세요.')}</div>
-          ${easy ? `<div class="intr-easy">🟢 <b>쉬운 설명</b><br>${esc(easy)}</div>` : ''}
           <div class="intr-btn-row">
+            <button class="intr-easy-btn ${detailOpen?'on':''}" onclick="_stratDetail('${_jsStr(id)}')">📄 자세히 보기</button>
             <button class="intr-easy-btn" onclick="_stratSimplify('${_jsStr(id)}')">🪄 쉬운 말로 바꾸기</button>
-            <button class="intr-easy-btn" onclick="window.open('${esc(i.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 ↗</button>
           </div>
+          ${detailOpen ? `<div class="intr-desc" style="white-space:pre-line">${esc(i.content_full || i.description || '이 혜택에 대한 설명 정보가 아직 없어요.')}</div>` : ''}
+          ${easy ? `<div class="intr-easy">🟢 <b>쉬운 설명</b><br>${esc(easy)}</div>` : ''}
           <div class="intr-act-row">
             <button class="intr-act consult" onclick="_stratConsult('${_jsStr(id)}')">📞 도움 필요</button>
             <label class="intr-act cal">📅 일정 등록<input type="date" min="${today}" onchange="_stratSchedule('${_jsStr(id)}', this.value)"></label>
@@ -130,6 +132,12 @@ function _stratItemHTML(i, area) {
 
 function _stratToggle(id) {
   if (_stratExpanded.has(id)) _stratExpanded.delete(id); else _stratExpanded.add(id);
+  renderStrategy();
+}
+
+// "자세히 보기" 토글 — 복지 혜택 설명 표시
+function _stratDetail(id) {
+  if (_stratDetailOpen.has(id)) _stratDetailOpen.delete(id); else _stratDetailOpen.add(id);
   renderStrategy();
 }
 

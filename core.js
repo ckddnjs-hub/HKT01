@@ -132,8 +132,6 @@ function updateHeaderAvatar() {
   const el = document.getElementById('hdr-avatar');
   if (!el || !MY_PROFILE) return;
   el.textContent = MY_PROFILE.gender === 'female' ? '👩' : '👨';
-  const badge = document.getElementById('hdr-badge');
-  if (badge && MY_PROFILE.onboarding_done) badge.style.display = 'inline-flex';
 }
 
 // ── 내정보 페이지 렌더 ───────────────────────────────────────────────

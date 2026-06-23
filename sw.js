@@ -1,8 +1,8 @@
-const CACHE = 'welfare-ai-v20';
+const CACHE = 'welfare-ai-v21';
 const ASSETS = [
   '/', '/index.html',
-  '/app.css?v=20', '/core.js?v=20', '/wizard.js?v=20',
-  '/dashboard.js?v=20', '/chat.js?v=20', '/strategy.js?v=20', '/calendar.js?v=20',
+  '/app.css?v=21', '/core.js?v=21', '/wizard.js?v=21',
+  '/dashboard.js?v=21', '/chat.js?v=21', '/strategy.js?v=21', '/calendar.js?v=21',
 ];
 
 self.addEventListener('install', e => {

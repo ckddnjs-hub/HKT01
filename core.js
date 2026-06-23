@@ -79,7 +79,8 @@ function _applyTheme(mode) {
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = isLight ? '🌑' : '🌙';
   const meta = document.getElementById('meta-theme-color');
-  if (meta) meta.content = isLight ? '#F4F6F8' : '#161B22';
+  // 헤더 그라데이션 시작색(=primary)과 맞춰 상태바도 같은 톤으로
+  if (meta) meta.content = isLight ? '#0f7b6c' : '#3bb6e6';
 }
 function toggleTheme() {
   const next = document.body.classList.contains('light') ? 'dark' : 'light';

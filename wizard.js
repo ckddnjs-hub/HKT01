@@ -259,70 +259,84 @@ function _wzOnSidoChange(sido) {
   sg.innerHTML = `<option value="">시·군·구 선택</option>` +
     list.map(d => `<option value="${d}">${d}</option>`).join('');
 }
+// 위치 획득 — 저정확도(빠름) 먼저, 실패하면 고정확도로 재시도
+function _wzGetPosition() {
+  const get = (opts) => new Promise((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition(resolve, reject, opts));
+  // 1차: 와이파이/기지국 기반 저정확도 — 시·군·구 수준엔 충분하고 PC에서도 빠름 (최근 10분 캐시 허용)
+  return get({ enableHighAccuracy: false, timeout: 9000, maximumAge: 600000 })
+    // 2차: 그래도 실패하면 고정확도로 길게 재시도
+    .catch(() => get({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }));
+}
+
 async function _pfGetGPS(idx) {
   const btn = document.getElementById('pf-gps-btn');
   if (!navigator.geolocation) { toast('GPS를 지원하지 않는 브라우저예요', 'error'); return; }
+  if (!window.isSecureContext) { toast('HTTPS 환경에서만 위치를 쓸 수 있어요 — 시·도를 직접 선택해주세요', 'error'); return; }
   if (btn) { btn.textContent = '📡 위치 가져오는 중...'; btn.disabled = true; }
   const resetBtn = () => { if (btn) { btn.textContent = '📍 현재 위치로 시·도 / 시·군·구 자동 선택'; btn.disabled = false; } };
 
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    const { latitude: lat, longitude: lng } = pos.coords;
+  // 1) 좌표 획득
+  let lat, lng;
+  try {
+    const pos = await _wzGetPosition();
+    lat = pos.coords.latitude; lng = pos.coords.longitude;
     _wz.data.lat = lat; _wz.data.lng = lng;
+  } catch (err) {
+    resetBtn();
+    const msg = err?.code === 1 ? 'GPS 권한이 거부됐어요 — 브라우저 주소창의 위치 권한을 허용해주세요'
+              : err?.code === 2 ? '위치 신호를 찾을 수 없어요 — 시·도를 직접 선택해주세요'
+              : '위치 응답이 늦어요 — 잠시 후 다시 시도하거나 시·도를 직접 선택해주세요';
+    toast(msg, 'error', 3500);
+    return;
+  }
 
-    let sido = '', sigungu = '', fullAddr = '';
-
-    // 1차: 카카오 좌표→행정구역 (가장 가까운 시·도/시·군·구)
-    try {
-      await _wzLoadKakaoSDK();
-      const region = await new Promise((res, rej) => {
-        const geocoder = new kakao.maps.services.Geocoder();
-        geocoder.coord2RegionCode(lng, lat, (result, status) => {
-          if (status === kakao.maps.services.Status.OK && result.length) {
-            res(result.find(x => x.region_type === 'B') || result[0]); // 법정동 우선
-          } else { rej(new Error('no region')); }
-        });
+  // 2) 좌표 → 행정구역 변환
+  let sido = '', sigungu = '', fullAddr = '';
+  try {
+    await _wzLoadKakaoSDK();
+    const region = await new Promise((res, rej) => {
+      const geocoder = new kakao.maps.services.Geocoder();
+      geocoder.coord2RegionCode(lng, lat, (result, status) => {
+        if (status === kakao.maps.services.Status.OK && result.length) {
+          res(result.find(x => x.region_type === 'B') || result[0]); // 법정동 우선
+        } else { rej(new Error('no region')); }
       });
-      sido = _wzMatchSido(region.region_1depth_name);
-      sigungu = _wzMatchSigungu(sido, region.region_2depth_name);
-      fullAddr = region.address_name || '';
-    } catch (_) {
-      // 2차 폴백: Nominatim (OpenStreetMap) — API키 불필요
-      try {
-        const r = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`,
-          { headers: { 'Accept-Language': 'ko' } }
-        );
-        const d = await r.json();
-        const a = d.address || {};
-        sido = _wzMatchSido(a.state || a.city || a.province || '');
-        sigungu = _wzMatchSigungu(sido, a.city || a.county || a.borough || a.suburb || a.district || '');
-      } catch (_2) { /* 둘 다 실패 */ }
-    }
+    });
+    sido = _wzMatchSido(region.region_1depth_name);
+    sigungu = _wzMatchSigungu(sido, region.region_2depth_name);
+    fullAddr = region.address_name || '';
+  } catch (_) {
+    // 폴백: Nominatim (OpenStreetMap) — API키 불필요
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`,
+        { headers: { 'Accept-Language': 'ko' } }
+      );
+      const d = await r.json();
+      const a = d.address || {};
+      sido = _wzMatchSido(a.state || a.city || a.province || '');
+      sigungu = _wzMatchSigungu(sido, a.city || a.county || a.borough || a.suburb || a.district || '');
+    } catch (_2) { /* 둘 다 실패 */ }
+  }
 
-    if (sido) {
-      _wz.data.region = sido;
-      _wz.data.district = sigungu;
-      _wz.data.address = [sido, sigungu].filter(Boolean).join(' ');
-      // 드롭다운 자동 선택
-      const sidoEl = document.getElementById('pf-sido');
-      if (sidoEl) sidoEl.value = sido;
-      _wzOnSidoChange(sido);
-      const sgEl = document.getElementById('pf-sigungu');
-      if (sgEl && sigungu) sgEl.value = sigungu;
-      const res = document.getElementById('pf-addr-result');
-      if (res) { res.textContent = '✅ ' + (fullAddr || _wz.data.address); res.style.display = 'block'; }
-      toast('가장 가까운 지역을 선택했어요', 'success');
-    } else {
-      toast('위치 변환 실패 — 직접 선택해주세요', 'error');
-    }
-    resetBtn();
-  }, (err) => {
-    resetBtn();
-    const msg = err.code === 1 ? 'GPS 권한을 허용해주세요'
-               : err.code === 2 ? '위치 신호를 찾을 수 없어요'
-               : 'GPS 시간이 초과됐어요';
-    toast(msg, 'error');
-  }, { enableHighAccuracy: true, timeout: 10000 });
+  if (sido) {
+    _wz.data.region = sido;
+    _wz.data.district = sigungu;
+    _wz.data.address = [sido, sigungu].filter(Boolean).join(' ');
+    // 드롭다운 자동 선택
+    const sidoEl = document.getElementById('pf-sido');
+    if (sidoEl) sidoEl.value = sido;
+    _wzOnSidoChange(sido);
+    const sgEl = document.getElementById('pf-sigungu');
+    if (sgEl && sigungu) sgEl.value = sigungu;
+    const res = document.getElementById('pf-addr-result');
+    if (res) { res.textContent = '✅ ' + (fullAddr || _wz.data.address); res.style.display = 'block'; }
+    toast('가장 가까운 지역을 선택했어요', 'success');
+  } else {
+    toast('주소 변환에 실패했어요 — 시·도를 직접 선택해주세요', 'error');
+  }
+  resetBtn();
 }
 function _pfPickRegion(idx) {
   const sido = document.getElementById('pf-sido')?.value || '';

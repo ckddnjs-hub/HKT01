@@ -56,7 +56,7 @@ body.ready{visibility:visible}
 #app.show{display:flex}
 
 .app-header{
-  background:linear-gradient(100deg,var(--primary),var(--accent));
+  background:var(--primary);
   border-bottom:none;
   padding:0 16px;min-height:48px;
   display:flex;align-items:center;justify-content:space-between;

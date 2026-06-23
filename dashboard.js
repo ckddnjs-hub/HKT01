@@ -88,7 +88,7 @@ function renderDashboard() {
               <span class="wc-tip">ℹ️ 이 혜택 알아보기</span>
               <div class="wc-tools">
                 <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운말</button>
-                <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 →</button>
+                <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히</button>
               </div>
             </div>
             <div style="display:flex;gap:10px">

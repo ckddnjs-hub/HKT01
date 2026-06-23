@@ -28,8 +28,10 @@ from langgraph.checkpoint.memory import MemorySaver
 # ---------------------------------------------------------------------
 # LLM + observability
 # ---------------------------------------------------------------------
-MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+MODEL = os.getenv("OPENAI_MODEL", "gpt-5.5")              # 메인 추론(의도분석·상담·방송)
+LIGHT_MODEL = os.getenv("OPENAI_LIGHT_MODEL", "gpt-4o-mini")  # 경량: 카드 텍스트 정제용
 llm = init_chat_model(MODEL, temperature=0)
+llm_light = init_chat_model(LIGHT_MODEL, temperature=0)
 try:
     from langfuse.langchain import CallbackHandler
     CALLBACKS = [CallbackHandler()]
@@ -108,6 +110,7 @@ class WelfareDB:
         self.sb = None
         self.svc = None
         self.cond = None
+        self._pd = None
         url = os.getenv("SUPABASE_URL")
         key = (os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
                or os.getenv("SUPABASE_KEY"))
@@ -222,7 +225,9 @@ def cards_from_rpc(rows, top=6):
             "service_name": _na(r.get("service_name")),
             "field": _na(r.get("service_field")),
             "local": bool(r.get("is_local")),
+            "one_liner": "",
             "support": _clip(r.get("support_content")),
+            "support_raw": _clip(r.get("support_content"), 900),
             "apply_method": _clip(r.get("apply_method"), 120) or "주민센터 방문/문의",
             "receiving_agency": _na(r.get("receiving_agency")) or "주민센터",
             "contact": _na(r.get("contact")),
@@ -231,6 +236,45 @@ def cards_from_rpc(rows, top=6):
             "confidence": _na(r.get("confidence")) or "참고",
             "matched": r.get("matched") or [],
         })
+    return cards
+
+# --- 경량 모델 카드 정제 (행정 원문 → 쉬운말 요약) ---
+class _PolishedItem(BaseModel):
+    index: int = Field(description="입력 카드의 index")
+    one_liner: str = Field(description="제도를 한 줄로 요약(누구에게 무엇을). 20자 내외")
+    support_clean: str = Field(description="지원내용을 어르신도 이해할 쉬운 말 2~3문장. 금액·대상 유지, 기호(○·-) 제거")
+
+class _PolishBatch(BaseModel):
+    items: list[_PolishedItem]
+
+def polish_cards(cards, callbacks=None):
+    """카드의 지원내용 원문을 경량 모델로 한 번에 정제. 실패 시 원문 유지."""
+    if not cards:
+        return cards
+    payload = [{"index": i,
+                "name": c.get("service_name", ""),
+                "raw": (c.get("support_raw") or c.get("support") or "")[:900]}
+               for i, c in enumerate(cards)]
+    sys = ("너는 복지 안내문을 디지털 취약계층(어르신 등)도 한 번에 이해하도록 다듬는 도우미다. "
+           "각 항목마다 (1) 한 줄 요약 one_liner, (2) 쉬운 말 2~3문장 support_clean 을 만들어라. "
+           "행정 기호(○, -, ※)와 중복을 없애고, 금액·대상·신청처 핵심은 반드시 유지하라. 새 정보를 지어내지 마라.")
+    try:
+        out = llm_light.with_structured_output(_PolishBatch).invoke(
+            [SystemMessage(content=sys),
+             HumanMessage(content=json.dumps(payload, ensure_ascii=False))],
+            config={"callbacks": callbacks or []})
+        by = {it.index: it for it in out.items}
+        for i, c in enumerate(cards):
+            it = by.get(i)
+            if it:
+                c["one_liner"] = it.one_liner.strip()
+                if it.support_clean.strip():
+                    c["support"] = it.support_clean.strip()
+            c.pop("support_raw", None)
+    except Exception as e:
+        print(f"카드 정제 스킵({e})")
+        for c in cards:
+            c.pop("support_raw", None)
     return cards
 
 def build_cards(gated, svc_map, service_fields, keywords=None, top=6):
@@ -257,7 +301,9 @@ def build_cards(gated, svc_map, service_fields, keywords=None, top=6):
         cards.append({
             "rank": rank, "service_name": _na(s.get("service_name")),
             "field": _na(s.get("service_field")), "local": bool(s.get("_local")),
+            "one_liner": "",
             "support": _clip(_na(s.get("support_content")) or s.get("service_summary")),
+            "support_raw": _clip(_na(s.get("support_content")) or s.get("service_summary"), 900),
             "apply_method": _clip(s.get("apply_method"), 120) or "주민센터 방문/문의",
             "receiving_agency": _na(s.get("receiving_agency")) or "주민센터",
             "contact": _na(s.get("contact")),
@@ -272,8 +318,10 @@ def render_cards(cards, dialect=None):
     lines = []
     for c in cards:
         tag = "🏠우리동네 " if c["local"] else ""
+        one = f"   · {c['one_liner']}\n" if c.get("one_liner") else ""
         lines.append(
             f"[{c['rank']}] {tag}{c['service_name']}  ({c['confidence']})\n"
+            f"{one}"
             f"   - 지원: {c['support']}\n"
             f"   - 신청: {c['apply_method']} / 접수처: {c['receiving_agency']}\n"
             f"   - 문의: {c['contact']}  마감: {c['deadline']}\n"
@@ -430,6 +478,7 @@ def intake(state: WelfareState):
 
 def match(state: WelfareState):
     cards = DB.match(state["profile"], top=6)
+    cards = polish_cards(cards, callbacks=CALLBACKS)   # 경량 모델로 카드 텍스트 정제
     return {"candidates": cards, "cards": cards}
 
 def present(state: WelfareState):
@@ -488,7 +537,7 @@ checkpointer = MemorySaver()
 citizen_graph = _builder.compile(checkpointer=checkpointer)
 
 # ---------------------------------------------------------------------
-# 방송 그래프 (Map-Reduce)
+# 방송 그래프 (Map-Reduce) — 발표 제외, 모듈/서버 호환 위해 유지
 # ---------------------------------------------------------------------
 REP_PROFILE = {
     "elderly_rural": {"age": 73, "income_band": "50", "characteristics": ["single_household", "farmer"]},

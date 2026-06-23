@@ -122,9 +122,32 @@ function chatQuickQuery(q) {
   setTimeout(() => _chatDoSend(q), 150);
 }
 
+// 프로필을 자연어 요약 → consult_text 에 실어 서버 분석(분야/특성 추출)을 돕는다
+function _profileSummaryKo(p) {
+  const parts = [];
+  const age = p.birth_year ? (new Date().getFullYear() - p.birth_year) : null;
+  if (age) parts.push(`${age}세`);
+  if (p.gender) parts.push(p.gender === 'female' ? '여성' : '남성');
+  const region = [p.region, p.district].filter(Boolean).join(' ');
+  if (region) parts.push(`${region} 거주`);
+  const hh = { single:'1인 가구', couple:'부부 가구', family:'자녀 있는 가족', single_parent:'한부모 가정', other:'기타 가구' }[p.household_type];
+  if (hh) parts.push(hh);
+  const hz = { own:'자가', jeonse:'전세', monthly_rent:'월세', public:'공공임대' }[p.housing_type];
+  if (hz) parts.push(hz);
+  if (p.income_level != null) parts.push(`기준 중위소득 ${p.income_level}% 이하`);
+  if (p.has_disability) parts.push('장애 있음');
+  if (p.has_pregnancy) parts.push('임신·출산 해당');
+  if (p.has_infant) parts.push('영유아 자녀 있음');
+  if (p.is_single_parent || p.household_type === 'single_parent') parts.push('한부모 가정');
+  if (p.is_low_income) parts.push('기초생활수급·차상위');
+  return parts.length ? `[내 정보] ${parts.join(', ')}` : '';
+}
+
 // ── MY_PROFILE → 어드바이저 Form 변환 ────────────────────────────────
 function _advisorForm(consultText) {
   const p = MY_PROFILE || {};
+  const summary = _profileSummaryKo(p);
+  const ct = (consultText && summary) ? `${consultText}\n\n${summary}` : (consultText || summary);
   let income_band = null;
   const lv = p.income_level;
   if (lv != null) income_band = lv <= 50 ? '50' : lv <= 75 ? '75' : lv <= 100 ? '100' : lv <= 200 ? '200' : 'over200';
@@ -147,7 +170,7 @@ function _advisorForm(consultText) {
     household_type,
     housing_type: housingMap[p.housing_type] || 'etc',
     checklist,
-    consult_text: consultText || '',
+    consult_text: ct,
     top: 6,
   };
 }

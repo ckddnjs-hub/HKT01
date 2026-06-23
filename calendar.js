@@ -30,12 +30,13 @@ function renderCalendar() {
       ${_renderCalGrid(events)}
     </div>
 
-    <!-- 이번 달 이벤트 목록 -->
-    <div style="padding:16px 16px 0">
-      <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);margin-bottom:10px">이번 달 마감 혜택</div>
+    <!-- 내가 등록한 복지 혜택 목록 -->
+    <div style="padding:16px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:.75rem;font-weight:700;color:var(--text-muted)">📌 내가 등록한 복지 혜택</div>
+      <button style="font-size:.7rem;background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer" onclick="navigateTo('dashboard')">+ 추가</button>
     </div>
     <div class="event-list" id="event-list">
-      ${_renderEventList(events)}
+      ${_renderMyList()}
     </div>
 
     <!-- 푸시 알림 설정 -->
@@ -140,6 +141,47 @@ function _renderCalGrid(events) {
     html += `<div class="cal-day ${isToday ? 'today' : ''} ${hasEvent ? 'has-event' : ''}">${d}</div>`;
   }
   return html;
+}
+
+// ── 내가 캘린더에 등록한 복지 혜택 목록 ───────────────────────────────
+function _renderMyList() {
+  const list = _loadSchedule().slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (!list.length) {
+    return `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:.83rem">
+      아직 등록한 복지 혜택이 없어요<br>
+      <button class="btn btn-outline" style="margin-top:14px" onclick="navigateTo('dashboard')">홈에서 혜택 추가하기 →</button>
+    </div>`;
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return list.map(s => {
+    const d = new Date(s.date + 'T00:00:00');
+    const days = Math.ceil((d - today) / 86400000);
+    const dleft = isNaN(days) ? '' : (days > 0 ? `D-${days}` : days === 0 ? 'D-DAY' : `지남`);
+    const memo = [s.amount, s.desc].filter(Boolean).join(' · ') || '직접 등록';
+    return `
+    <div class="event-item">
+      <div class="event-date-badge">
+        <div class="event-day">${d.getDate()}</div>
+        <div class="event-month">${d.getMonth() + 1}월</div>
+      </div>
+      <div style="flex:1">
+        <div class="event-title" style="color:#2eaadc">${esc(s.name)}</div>
+        <div class="event-desc">${esc(memo)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div class="badge ${days < 0 ? 'badge-purple' : days <= 7 ? 'badge-red' : 'badge-green'}" style="font-size:.65rem">${dleft}</div>
+        <button onclick="_calRemoveSchedule('${encodeURIComponent(s.date)}','${encodeURIComponent(s.name)}')"
+          style="background:none;border:none;color:var(--text-dim);font-size:1rem;cursor:pointer;padding:0 2px" title="삭제">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function _calRemoveSchedule(dateEnc, nameEnc) {
+  const date = decodeURIComponent(dateEnc), name = decodeURIComponent(nameEnc);
+  const list = _loadSchedule().filter(s => !(s.date === date && s.name === name));
+  localStorage.setItem('welfare_schedule', JSON.stringify(list));
+  renderCalendar();
+  toast('일정을 삭제했어요');
 }
 
 function _renderEventList(events) {

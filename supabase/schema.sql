@@ -48,6 +48,19 @@ CREATE TABLE IF NOT EXISTS benefit_results (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 신청 도움 요청 (담당 기관/복지사 전달용)
+CREATE TABLE IF NOT EXISTS benefit_help_requests (
+  id           BIGSERIAL PRIMARY KEY,
+  user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  benefit_name TEXT NOT NULL,
+  agency_name  TEXT,
+  region       TEXT,
+  contact      TEXT,
+  status       TEXT DEFAULT 'pending',   -- pending / contacted / done
+  profile_snapshot JSONB,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- PWA 푸시 구독 정보
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id           BIGSERIAL PRIMARY KEY,
@@ -62,12 +75,14 @@ ALTER TABLE profiles          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefit_results   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE benefit_help_requests ENABLE ROW LEVEL SECURITY;
 
 -- 본인 데이터만 접근
 CREATE POLICY "own profile"       ON profiles          FOR ALL USING (auth.uid() = id);
 CREATE POLICY "own conversations" ON conversations      FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "own benefits"      ON benefit_results    FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "own push"          ON push_subscriptions FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "own help requests" ON benefit_help_requests FOR ALL USING (auth.uid() = user_id);
 
 -- updated_at 자동 갱신 트리거
 CREATE OR REPLACE FUNCTION update_updated_at()

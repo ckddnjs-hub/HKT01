@@ -345,6 +345,31 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .benefit-amount{font-size:.78rem;color:var(--primary);font-weight:600}
 .benefit-how{font-size:.7rem;color:var(--text-muted);margin-top:1px}
 
+/* 추천 혜택 추가 설정 칩 (신청 도움 / 캘린더) */
+.bf-action-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.bf-chip{
+  font-size:.7rem;padding:5px 10px;border-radius:8px;
+  border:1px solid var(--border);background:transparent;color:var(--text-muted);
+  font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;
+}
+.bf-chip:active{transform:scale(.96)}
+.bf-chip.on{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700}
+
+/* 공통 모달 */
+.modal-overlay{
+  position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+  animation:fadeIn .15s ease;
+}
+.modal-box{
+  width:100%;max-width:340px;background:var(--bg);border:1px solid var(--border);
+  border-radius:16px;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.35);
+}
+.modal-title{font-size:1rem;font-weight:900;margin-bottom:4px}
+.modal-sub{font-size:.83rem;color:var(--text-muted);margin-bottom:16px}
+.modal-label{display:block;font-size:.75rem;font-weight:700;color:var(--text-muted);margin:10px 0 6px}
+.modal-actions{display:flex;gap:8px;margin-top:18px}
+
 /* ?먥븧 梨꾪똿 ???먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??*/
 .chat-tab-bar{
   display:flex;border-bottom:1px solid var(--border);
@@ -377,10 +402,10 @@ body.light .chat-bubble.user{color:#fff}
 body.light .chat-bubble.ai{box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .chat-bubble.ai b{color:var(--primary)}
 .chat-input-bar{
-  position:fixed;bottom:60px;left:0;right:0;
+  position:fixed;bottom:calc(60px + env(safe-area-inset-bottom,0px));left:0;right:0;
   background:var(--bg);border-top:1px solid var(--border);
-  padding:10px 12px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
-  display:flex;gap:8px;align-items:flex-end;z-index:50;transition:background .2s;
+  padding:10px 12px;
+  display:flex;gap:8px;align-items:flex-end;z-index:201;transition:background .2s;
 }
 .chat-input{
   flex:1;padding:9px 12px;border:1px solid var(--border);

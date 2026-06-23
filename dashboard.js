@@ -5,6 +5,15 @@
 
 let _dashStrategyCache = null;
 
+// ── 사용자 액션 저장소 (신청 도움 요청 / 캘린더 등록) ──────────────────
+function _loadSchedule() { try { return JSON.parse(localStorage.getItem('welfare_schedule') || '[]'); } catch { return []; } }
+function _loadHelpReqs() { try { return JSON.parse(localStorage.getItem('benefit_help_requests') || '[]'); } catch { return []; } }
+function _dashHelpSet()  { return new Set(_loadHelpReqs().map(r => r.benefit_name)); }
+function _dashCalSet()   { return new Set(_loadSchedule().map(s => s.name)); }
+function _jsStr(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '); }
+function _dateToInput(d) { const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function _endOfMonth() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth()+1, 0); }
+
 function renderDashboard() {
   const el = document.getElementById('page-dashboard');
   if (!el) return;
@@ -16,6 +25,8 @@ function renderDashboard() {
   const benefits = _dashStrategyCache?.benefits || [];
   const urgent = benefits.filter(b => b.urgency >= 8).slice(0, 2);
   const topBenefits = benefits.slice(0, 5);
+  const helpSet = _dashHelpSet();
+  const calSet  = _dashCalSet();
 
   el.innerHTML = `
     <!-- 히어로 -->
@@ -74,7 +85,10 @@ function renderDashboard() {
       <div class="section-title">💰 받을 수 있는 혜택</div>
       ${topBenefits.length > 0 ? `
         <div class="card" style="padding:0 16px">
-          ${topBenefits.map(b => `
+          ${topBenefits.map(b => {
+            const helped = helpSet.has(b.name);
+            const caled  = calSet.has(b.name);
+            return `
             <div class="benefit-item">
               <div class="benefit-icon" style="background:${_dashCatColor(b.category)}20">
                 ${_dashCatIcon(b.category)}
@@ -84,6 +98,14 @@ function renderDashboard() {
                 <div class="benefit-amount">${esc(b.amount)}</div>
                 <div class="benefit-how">${esc(b.description)}</div>
                 ${b.match_reason ? `<div style="font-size:.7rem;color:var(--accent);margin-top:3px">✓ ${esc(b.match_reason)}</div>` : ''}
+                <div class="bf-action-row">
+                  <button class="bf-chip ${helped?'on':''}" onclick="_dashToggleHelp(this,'${_jsStr(b.name)}','${_jsStr(b.agency||'')}')">
+                    ${helped ? '✅ 신청 도움 요청됨' : '🙋 신청 도움 받기'}
+                  </button>
+                  <button class="bf-chip ${caled?'on':''}" onclick="_dashAddToCalendar('${_jsStr(b.name)}','${_jsStr(b.amount||'')}','${b.deadline||''}')">
+                    ${caled ? '📅 캘린더 등록됨' : '📅 캘린더에 추가'}
+                  </button>
+                </div>
               </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
                 <div class="badge ${b.source === '지자체' ? 'badge-purple' : 'badge-green'}" style="font-size:.6rem">
@@ -91,7 +113,8 @@ function renderDashboard() {
                 </div>
                 <button style="font-size:.7rem;padding:4px 9px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;white-space:nowrap" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">신청 →</button>
               </div>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
         <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="navigateTo('strategy')">
           📊 전체 전략보드 보기
@@ -415,4 +438,94 @@ function _strategyAutoLoad() {
   _searchThreadId = null;
   _dashStrategyCache = null;
   setTimeout(() => loadFromSupabase(), 500);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  추천 혜택 추가 설정 — ① 신청 도움 요청  ② 캘린더 등록
+// ══════════════════════════════════════════════════════════════════════
+
+// ① 신청 도움 필요 → 담당 기관(지자체/복지사)에 전달 (Supabase 저장 + localStorage)
+async function _dashToggleHelp(btn, name, agency) {
+  const reqs = _loadHelpReqs();
+  const idx = reqs.findIndex(r => r.benefit_name === name);
+
+  // 이미 요청됨 → 취소
+  if (idx >= 0) {
+    reqs.splice(idx, 1);
+    localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+    if (btn) { btn.classList.remove('on'); btn.textContent = '🙋 신청 도움 받기'; }
+    if (ME) { try { await sb.from('benefit_help_requests').delete().eq('user_id', ME.id).eq('benefit_name', name); } catch (_) {} }
+    toast('신청 도움 요청을 취소했어요');
+    return;
+  }
+
+  // 신규 요청
+  const p = MY_PROFILE || {};
+  const region = [p.region, p.district].filter(Boolean).join(' ');
+  reqs.push({ benefit_name: name, agency_name: agency, region, requested_at: new Date().toISOString() });
+  localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+  if (btn) { btn.classList.add('on'); btn.textContent = '✅ 신청 도움 요청됨'; }
+
+  // 담당 기관/복지사가 확인할 수 있도록 Supabase에 기록
+  if (ME) {
+    try {
+      await sb.from('benefit_help_requests').insert({
+        user_id: ME.id,
+        benefit_name: name,
+        agency_name: agency,
+        region,
+        profile_snapshot: p,
+        status: 'pending',
+      });
+    } catch (e) { console.warn('help request 저장 실패(테이블 미생성 가능):', e.message); }
+  }
+  toast('담당 기관에 신청 도움을 요청했어요 🙋 곧 안내해드릴게요', 'success');
+}
+
+// ② 일정 안내 필요 → 캘린더에 등록 (날짜 선택 모달)
+let _dashPendingCal = null;
+function _dashAddToCalendar(name, amount, deadline) {
+  // 이미 등록됨 → 캘린더로 이동
+  if (_dashCalSet().has(name)) { navigateTo('calendar'); return; }
+
+  _dashPendingCal = { name, amount };
+  const dl = deadline ? new Date(deadline) : null;
+  const def = (dl && !isNaN(dl.getTime())) ? _dateToInput(dl) : _dateToInput(_endOfMonth());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'dash-modal';
+  overlay.onclick = (e) => { if (e.target === overlay) _dashCloseModal(); };
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-title">📅 캘린더에 추가</div>
+      <div class="modal-sub">${esc(name)}</div>
+      <label class="modal-label">신청 / 마감 예정일</label>
+      <input type="date" id="cal-date-input" class="pf-input" style="width:100%" value="${def}">
+      <label class="modal-label">메모 (선택)</label>
+      <input type="text" id="cal-memo-input" class="pf-input" style="width:100%" placeholder="예: 주민센터 방문" value="${esc(amount || '')}">
+      <div class="modal-actions">
+        <button class="btn btn-outline" style="flex:1" onclick="_dashCloseModal()">취소</button>
+        <button class="btn btn-primary" style="flex:1" onclick="_dashConfirmCalendar()">추가</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('cal-date-input')?.focus(), 80);
+}
+function _dashConfirmCalendar() {
+  if (!_dashPendingCal) return;
+  const date = document.getElementById('cal-date-input')?.value;
+  const memo = document.getElementById('cal-memo-input')?.value || '';
+  if (!date) { toast('날짜를 선택해주세요', 'error'); return; }
+  const list = _loadSchedule();
+  list.push({ id: Date.now(), date, name: _dashPendingCal.name, amount: _dashPendingCal.amount, desc: memo });
+  localStorage.setItem('welfare_schedule', JSON.stringify(list));
+  _dashPendingCal = null;
+  _dashCloseModal();
+  toast('캘린더에 등록했어요 📅', 'success');
+  if (currentPage === 'dashboard') renderDashboard();
+}
+function _dashCloseModal() {
+  document.getElementById('dash-modal')?.remove();
+  _dashPendingCal = null;
 }

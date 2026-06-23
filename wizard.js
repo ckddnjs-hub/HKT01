@@ -230,11 +230,7 @@ function _pfRegion(idx) {
       <div class="pf-step-sub">시·도와 시·군·구까지 선택하면 지자체 혜택을 더 정확히 찾아드려요</div>
     </div>
     <div class="pf-step-body">
-      <button class="gps-btn" id="pf-gps-btn" onclick="_pfGetGPS(${idx})">📍 현재 위치로 시·도 / 시·군·구 자동 선택</button>
-      <div id="pf-addr-result" class="address-result" style="display:${_wz.data.address?'block':'none'}">
-        ✅ ${esc(_wz.data.address||'')}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="display:flex;gap:8px">
         <select id="pf-sido" class="pf-input" style="flex:1" onchange="_wzOnSidoChange(this.value)">
           <option value="">시·도 선택</option>
           ${Object.keys(KR_REGIONS).map(s => `<option value="${s}" ${s===sido?'selected':''}>${s}</option>`).join('')}

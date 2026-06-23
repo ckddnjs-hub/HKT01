@@ -13,8 +13,20 @@ let _stratClassifying = false;
 let _stratPendingSchedule = null;   // 일정 등록 모달 대상 id
 
 const STRAT_AREAS = ['주거', '생활', '의료', '교육', '취업', '돌봄'];
-const AREA_ICON   = { 주거:'🏠', 생활:'🍚', 의료:'🏥', 교육:'📚', 취업:'💼', 돌봄:'👶' };
 const AREA_COLOR  = { 주거:'#3B82F6', 생활:'#00C896', 의료:'#EF4444', 교육:'#F59E0B', 취업:'#6366F1', 돌봄:'#EC4899' };
+
+// 영역별 SVG 아이콘 (stroke=currentColor → 부모 color로 색 지정)
+const AREA_SVG = {
+  주거: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/>',
+  생활: '<path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
+  의료: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/>',
+  교육: '<path d="M22 9 12 5 2 9l10 4 10-4Z"/><path d="M6 10.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-5.5"/>',
+  취업: '<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
+  돌봄: '<path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10Z"/>',
+};
+function _areaSvg(area, size = 20) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px">${AREA_SVG[area] || ''}</svg>`;
+}
 
 // ── 저장소 ────────────────────────────────────────────────────────────
 function _stratInterests()        { try { return JSON.parse(localStorage.getItem('welfare_interests') || '[]'); } catch { return []; } }
@@ -34,6 +46,8 @@ function renderStrategy() {
   const cats = _stratLoadCategories();
   const counts = {}; STRAT_AREAS.forEach(a => counts[a] = 0);
   interests.forEach(i => { const c = cats[i.service_id || i.name]; if (counts[c] != null) counts[c]++; });
+  const consultSet = new Set(_navGetConsult().map(x => x.name));
+  const schedSet   = new Set(_navGetSchedule().map(x => x.name));
 
   el.innerHTML = `
     <div style="padding:16px 16px 0">
@@ -50,12 +64,12 @@ function renderStrategy() {
           <div class="chart-title">🎯 관심 혜택 영역별 분포</div>
           <div class="radar-wrap"><canvas id="radar-chart"></canvas></div>
           <div class="area-legend">
-            ${STRAT_AREAS.map(a => `<span class="area-legend-item"><span style="color:${AREA_COLOR[a]}">${AREA_ICON[a]}</span> ${a} <b>${counts[a]}</b></span>`).join('')}
+            ${STRAT_AREAS.map(a => `<span class="area-legend-item"><span style="color:${AREA_COLOR[a]}">${_areaSvg(a, 16)}</span> ${a} <b>${counts[a]}</b></span>`).join('')}
           </div>
         </div>
 
         <div class="chart-title" style="margin:14px 0 4px">⭐ 내 관심 혜택 (${interests.length})</div>
-        ${_renderInterestGrouped(interests, cats)}
+        ${_renderInterestGrouped(interests, cats, consultSet, schedSet)}
       ` : `
         <div class="card" style="text-align:center;padding:40px 16px">
           <div style="font-size:2.5rem;margin-bottom:12px">⭐</div>
@@ -75,7 +89,7 @@ function renderStrategy() {
 }
 
 // ── 영역별 그룹 렌더 ──────────────────────────────────────────────────
-function _renderInterestGrouped(interests, cats) {
+function _renderInterestGrouped(interests, cats, consultSet, schedSet) {
   const byArea = {};
   interests.forEach(i => {
     const c = cats[i.service_id || i.name] || '__pending';
@@ -86,31 +100,35 @@ function _renderInterestGrouped(interests, cats) {
   STRAT_AREAS.forEach(area => {
     const list = byArea[area];
     if (!list || !list.length) return;
-    html += `<div class="intr-area-head" style="color:${AREA_COLOR[area]}">${AREA_ICON[area]} ${area} <span style="color:var(--text-dim);font-weight:600">${list.length}</span></div>`;
-    html += list.map(i => _stratItemHTML(i, area)).join('');
+    html += `<div class="intr-area-head" style="color:${AREA_COLOR[area]}">${_areaSvg(area, 18)} ${area} <span style="color:var(--text-dim);font-weight:600">${list.length}</span></div>`;
+    html += list.map(i => _stratItemHTML(i, area, consultSet, schedSet)).join('');
   });
   if (byArea['__pending'] && byArea['__pending'].length) {
     html += `<div class="intr-area-head" style="color:var(--text-muted)">🔄 분류 중…</div>`;
-    html += byArea['__pending'].map(i => _stratItemHTML(i, null)).join('');
+    html += byArea['__pending'].map(i => _stratItemHTML(i, null, consultSet, schedSet)).join('');
   }
   return html;
 }
 
 // ── 개별 항목(펼치기) ─────────────────────────────────────────────────
-function _stratItemHTML(i, area) {
+function _stratItemHTML(i, area, consultSet, schedSet) {
   const id = i.service_id || i.name;
   const open = _stratExpanded.has(id);
   const detailOpen = _stratDetailOpen.has(id);
   const easy = _stratSimplified[id];
+  const hasConsult = consultSet && consultSet.has(i.name);
+  const hasSched   = schedSet && schedSet.has(i.name);
 
   return `
     <div class="card intr-card" style="padding:0;margin-bottom:8px">
       <div class="intr-head" onclick="_stratToggle('${_jsStr(id)}')">
-        <span style="font-size:1.25rem;flex-shrink:0">${area ? AREA_ICON[area] : _dashCatIcon(i.category)}</span>
+        <span class="intr-ico" style="flex-shrink:0;color:${area ? AREA_COLOR[area] : 'var(--text-muted)'}">${area ? _areaSvg(area, 22) : `<span style="font-size:1.25rem">${_dashCatIcon(i.category)}</span>`}</span>
         <div style="flex:1;min-width:0">
           <div class="intr-name">${esc(i.name)}</div>
           <div class="intr-amount">${esc(i.amount || '')}</div>
         </div>
+        ${hasConsult ? '<span class="intr-flag consult" title="도움 요청됨">📞</span>' : ''}
+        ${hasSched ? '<span class="intr-flag sched" title="일정 등록됨">📅</span>' : ''}
         <span class="intr-chevron">${open ? '▴' : '▾'}</span>
       </div>
       ${open ? `
@@ -169,6 +187,7 @@ function _stratConsult(id) {
   items.push({ id: Date.now(), name: it.name, amount: it.amount || '', desc: it.description || '', agency: it.agency || '', apply_url: it.apply_url || '' });
   _navSetConsult(items);
   toast('도움 요청이 등록됐어요 📞 담당자가 안내해드려요', 'success');
+  renderStrategy();
 }
 
 // ── 일정 등록(캘린더) — 날짜·시간·알람·메모 입력 모달 ─────────────────
@@ -233,6 +252,7 @@ function _stratConfirmSchedule() {
   _stratCloseModal();
   const alarmTxt = alarm === 'same' ? ' (당일 알림)' : alarm === 'prev' ? ' (전날 알림)' : '';
   toast(`캘린더에 일정을 등록했어요 📅${alarmTxt}`, 'success');
+  renderStrategy();
 }
 
 function _stratCloseModal() {

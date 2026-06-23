@@ -315,7 +315,7 @@ function _pt(cx, cy, r, deg) {
   return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
 }
 function _areaRadarSVG(counts) {
-  const W = 260, H = 234, cx = 130, cy = 110, R = 70, iconR = R + 28;
+  const W = 280, H = 252, cx = 140, cy = 118, R = 70, iconR = R + 26;
   const values = STRAT_AREAS.map(a => counts[a] || 0);
   const maxV = Math.max(1, ...values);           // 최댓값(예: 교육 2) 이 바깥 테두리에 닿도록
   const angles = STRAT_AREAS.map((_, i) => -90 + i * 60);
@@ -335,12 +335,12 @@ function _areaRadarSVG(counts) {
   const dataStr = dataPts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ');
   const dots = dataPts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#a99cff"/>`).join('');
 
-  // 꼭짓점 아이콘 + 개수
+  // 꼭짓점 아이콘 + 영역명 + 개수
   let icons = '';
   STRAT_AREAS.forEach((a, i) => {
     const [ix, iy] = _pt(cx, cy, iconR, angles[i]);
-    icons += `<g transform="translate(${(ix - 9.6).toFixed(1)},${(iy - 9.6).toFixed(1)}) scale(0.8)" fill="none" stroke="${AREA_COLOR[a]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${AREA_SVG[a]}</g>`;
-    if (counts[a]) icons += `<text x="${ix.toFixed(1)}" y="${(iy + 18).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${AREA_COLOR[a]}">${counts[a]}</text>`;
+    icons += `<g transform="translate(${(ix - 7.7).toFixed(1)},${(iy - 13).toFixed(1)}) scale(0.64)" fill="none" stroke="${AREA_COLOR[a]}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${AREA_SVG[a]}</g>`;
+    icons += `<text x="${ix.toFixed(1)}" y="${(iy + 13).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="800" fill="${AREA_COLOR[a]}">${a}${counts[a] ? ' ' + counts[a] : ''}</text>`;
   });
 
   return `

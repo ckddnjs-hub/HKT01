@@ -89,8 +89,50 @@ function toggleTheme() {
   localStorage.setItem('theme', next);
   _applyTheme(next);
 }
-// 저장된 테마 즉시 적용 (깜빡임 방지)
-_applyTheme(localStorage.getItem('theme') || 'dark');
+// 저장된 테마 즉시 적용 (기본값: 라이트 모드)
+_applyTheme(localStorage.getItem('theme') || 'light');
+
+function setTheme(mode) {
+  localStorage.setItem('theme', mode);
+  _applyTheme(mode);
+  if (currentPage === 'profile') renderProfilePage();
+}
+
+// ── 글자 크기 조절 (html 기준 rem 스케일) ─────────────────────────────
+function _applyFontScale(px) {
+  document.documentElement.style.fontSize = (px || 16) + 'px';
+}
+function setFontScale(px) {
+  localStorage.setItem('font_scale', String(px));
+  _applyFontScale(px);
+  if (currentPage === 'profile') renderProfilePage();
+}
+_applyFontScale(parseInt(localStorage.getItem('font_scale')) || 16);
+
+// ── 푸시 알림 ON/OFF ─────────────────────────────────────────────────
+async function setPush(on) {
+  if (on) {
+    await requestPushPermission();
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      if (ME) { try { await sb.from('push_subscriptions').delete().eq('user_id', ME.id); } catch (_) {} }
+    } catch (_) {}
+    localStorage.setItem('push_enabled', '0');
+    localStorage.removeItem('push_subscription');
+    toast('알림을 껐어요');
+  }
+  if (currentPage === 'profile') renderProfilePage();
+}
+
+// ── 이름/닉네임 저장 ─────────────────────────────────────────────────
+async function saveProfileName(v) {
+  await saveProfile({ name: (v || '').trim() });
+  toast('이름을 저장했어요', 'success');
+  updateHeaderAvatar();
+}
 
 // ── 라우팅 ────────────────────────────────────────────────────────────
 function navigateTo(page) {
@@ -145,14 +187,27 @@ function renderProfilePage() {
   const householdLabel = { single:'1인 가구', couple:'부부', family:'자녀포함 가족', single_parent:'한부모 가정', other:'기타' };
   const housingLabel   = { own:'자가', jeonse:'전세', monthly_rent:'월세', public:'공공임대', other:'기타' };
 
+  const lightOn = document.body.classList.contains('light');
+  const pushOn  = localStorage.getItem('push_enabled') === '1';
+  const fs      = parseInt(localStorage.getItem('font_scale')) || 16;
+
   el.innerHTML = `
     <div style="padding:24px 16px 0;text-align:center">
       <div class="profile-avatar">${p?.gender === 'female' ? '👩' : '👨'}</div>
-      <div style="font-size:1rem;font-weight:900;margin-bottom:4px">${age}세 ${p?.gender === 'female' ? '여성' : '남성'}</div>
-      <div style="font-size:.83rem;color:var(--text-muted);margin-bottom:20px">${p?.address || p?.region || '지역 미입력'}</div>
+      <div style="font-size:1rem;font-weight:900;margin-bottom:4px">${esc(p?.name) || `${age}세 ${p?.gender === 'female' ? '여성' : '남성'}`}</div>
+      <div style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">${esc(p?.address || p?.region || '지역 미입력')}</div>
     </div>
     <div class="profile-section">
-      <div class="section-title">기본 정보</div>
+
+      <div class="section-title">내 정보 (수정 가능)</div>
+      <div class="card">
+        <label class="modal-label">이름 / 닉네임</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="pf-name-input" class="pf-input" style="flex:1" placeholder="이름을 입력하세요"
+            value="${esc(p?.name || '')}" onkeydown="if(event.key==='Enter')saveProfileName(this.value)">
+          <button class="btn btn-primary" onclick="saveProfileName(document.getElementById('pf-name-input').value)">저장</button>
+        </div>
+      </div>
       <div class="card" style="padding:0 16px">
         ${profileRow('거주 지역', p?.address || p?.region || '-')}
         ${profileRow('가구 구성', householdLabel[p?.household_type] || '-')}
@@ -160,6 +215,35 @@ function renderProfilePage() {
         ${profileRow('중위소득', p?.income_level ? `${p.income_level}%` : '-')}
         ${profileRow('거주 형태', housingLabel[p?.housing_type] || '-')}
       </div>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="navigateTo('wizard')">✏️ 상세 정보 다시 입력</button>
+
+      <div class="section-title">설정</div>
+      <div class="card">
+        <div class="set-row">
+          <span class="set-label">화면 모드</span>
+          <div class="seg">
+            <button class="btn btn-sm ${lightOn ? 'btn-primary' : 'btn-outline'}" onclick="setTheme('light')">☀️ 라이트</button>
+            <button class="btn btn-sm ${!lightOn ? 'btn-primary' : 'btn-outline'}" onclick="setTheme('dark')">🌙 다크</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span class="set-label">푸시 알림</span>
+          <div class="seg">
+            <button class="btn btn-sm ${pushOn ? 'btn-primary' : 'btn-outline'}" onclick="setPush(true)">ON</button>
+            <button class="btn btn-sm ${!pushOn ? 'btn-primary' : 'btn-outline'}" onclick="setPush(false)">OFF</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span class="set-label">글자 크기</span>
+          <div class="seg">
+            <button class="btn btn-sm ${fs === 16 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(16)">보통</button>
+            <button class="btn btn-sm ${fs === 18 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(18)">크게</button>
+            <button class="btn btn-sm ${fs === 20 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(20)">더크게</button>
+          </div>
+        </div>
+        ${pushOn ? `<button class="btn btn-outline btn-full" style="margin-top:6px" onclick="sendTestPush()">🧪 테스트 알림 보내기</button>` : ''}
+      </div>
+
       <div class="section-title">추가 정보</div>
       <div class="card" style="padding:0 16px">
         ${profileRow('장애 여부', p?.has_disability ? '있음' : '없음')}
@@ -167,16 +251,8 @@ function renderProfilePage() {
         ${profileRow('영유아 자녀', p?.has_infant ? '있음' : '없음')}
         ${profileRow('기초/차상위', p?.is_low_income ? '해당' : '해당없음')}
       </div>
-      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="navigateTo('wizard')">
-        ✏️ 정보 다시 입력
-      </button>
-      <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--danger);border-color:var(--danger)" onclick="requestPushPermission()">
-        🔔 혜택 마감 알림 받기
-      </button>
-      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="sendTestPush()">
-        🧪 테스트 알림 보내기
-      </button>
-      <div style="height:16px"></div>
+
+      <div style="height:100px"></div>
     </div>
   `;
 }
@@ -208,6 +284,7 @@ async function requestPushPermission() {
         { onConflict: 'user_id' }
       );
     }
+    localStorage.setItem('push_enabled', '1');
     toast('혜택 마감 알림이 설정됐어요 🔔', 'success');
   } catch (e) {
     console.error('push subscribe error', e);

@@ -379,6 +379,10 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .modal-sub{font-size:.83rem;color:var(--text-muted);margin-bottom:16px}
 .modal-label{display:block;font-size:.75rem;font-weight:700;color:var(--text-muted);margin:10px 0 6px}
 .modal-actions{display:flex;gap:8px;margin-top:18px}
+/* 모달 입력칸이 박스 밖으로 넘치지 않도록 (특히 date/time 모바일) */
+.modal-box{overflow:hidden}
+.modal-box input,.modal-box select{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.modal-box input[type="date"],.modal-box input[type="time"]{-webkit-appearance:none;appearance:none}
 
 /* 복지로 혜택 카드 — 상태 설정(받는중/관심/관심없음) */
 .welfare-card{transition:opacity .2s}

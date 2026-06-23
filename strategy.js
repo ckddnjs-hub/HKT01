@@ -22,6 +22,8 @@ function renderStrategy() {
 
     <div class="strategy-section">
 
+      ${_renderInterestList()}
+
       ${data?.presented_text ? `
         <!-- AI 요약 -->
         <div class="card" style="background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3)">
@@ -117,6 +119,49 @@ function renderStrategy() {
     _drawScatterChart(data?.benefits || []);
     _drawRadarChart(data?.radar_scores || {});
   }, 100);
+}
+
+// ── 내 관심 혜택 (대시보드에서 ⭐관심으로 넘어온 항목) ────────────────
+function _renderInterestList() {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem('welfare_interests') || '[]'); } catch {}
+  if (!items.length) {
+    return `
+      <div class="card" style="text-align:center;padding:20px 16px;border-style:dashed">
+        <div style="font-size:1.6rem;margin-bottom:6px">⭐</div>
+        <div style="font-weight:700;font-size:.88rem;margin-bottom:4px">아직 관심 혜택이 없어요</div>
+        <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px">홈에서 혜택에 <b style="color:var(--accent)">⭐ 관심</b>을 표시하면 여기에 모여요</div>
+        <button class="btn btn-outline" onclick="navigateTo('dashboard')">홈에서 혜택 보기 →</button>
+      </div>`;
+  }
+  return `
+    <div class="card" style="border-color:var(--accent);background:rgba(169,156,255,.08)">
+      <div class="chart-title" style="color:var(--accent)">⭐ 내 관심 혜택 (${items.length})</div>
+      ${items.map(b => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--border)">
+          <div style="font-size:1.3rem;flex-shrink:0">${_dashCatIcon(b.category)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:.88rem">${esc(b.name)}</div>
+            <div style="font-size:.8rem;color:var(--primary);font-weight:700">${esc(b.amount || '')}</div>
+            <div style="font-size:.74rem;color:var(--text-muted)">${esc(b.agency || '')}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+            <button class="nav-zone-del" title="관심 해제" onclick="_stratRemoveInterest('${_jsStr(b.service_id || b.name)}')">✕</button>
+            <button style="font-size:.72rem;padding:4px 9px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">신청</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+function _stratRemoveInterest(id) {
+  let interests = [];
+  try { interests = JSON.parse(localStorage.getItem('welfare_interests') || '[]'); } catch {}
+  interests = interests.filter(i => (i.service_id || i.name) !== id);
+  localStorage.setItem('welfare_interests', JSON.stringify(interests));
+  let status = {};
+  try { status = JSON.parse(localStorage.getItem('welfare_status') || '{}'); } catch {}
+  if (status[id] === 'interested') { delete status[id]; localStorage.setItem('welfare_status', JSON.stringify(status)); }
+  toast('관심 해제했어요');
+  renderStrategy();
 }
 
 // ── 복지 네비게이션 칸반 ─────────────────────────────────────────────

@@ -371,6 +371,22 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .modal-label{display:block;font-size:.75rem;font-weight:700;color:var(--text-muted);margin:10px 0 6px}
 .modal-actions{display:flex;gap:8px;margin-top:18px}
 
+/* 복지로 혜택 카드 — 상태 설정(받는중/관심/관심없음) */
+.welfare-card{transition:opacity .2s}
+.welfare-card.dim{opacity:.5}
+.ws-status-row{display:flex;gap:6px;margin-top:10px}
+.ws-btn{
+  flex:1;font-size:.72rem;padding:7px 4px;border-radius:8px;
+  border:1px solid var(--border);background:transparent;color:var(--text-muted);
+  font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s;
+}
+.ws-btn:active{transform:scale(.97)}
+.ws-btn.recv.on{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700}
+.ws-btn.intr.on{background:rgba(169,156,255,.18);border-color:var(--accent);color:var(--accent);font-weight:700}
+.ws-btn.noint.on{background:var(--bg3);border-color:var(--border-strong);color:var(--text-dim);font-weight:700}
+.ws-detail{font-size:.72rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:inherit}
+.ws-detail:hover{color:var(--primary)}
+
 /* ?먥븧 梨꾪똿 ???먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??*/
 .chat-tab-bar{
   display:flex;border-bottom:1px solid var(--border);

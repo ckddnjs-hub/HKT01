@@ -240,11 +240,7 @@ function _pfRegion(idx) {
           ${(KR_REGIONS[sido]||[]).map(d => `<option value="${d}" ${d===sigungu?'selected':''}>${d}</option>`).join('')}
         </select>
       </div>
-      <input type="text" id="pf-addr-detail" class="pf-input" style="width:100%;margin-top:8px"
-        placeholder="상세주소 (선택) — 예: ○○동 ○○아파트"
-        value="${esc(_wz.data.address_detail||'')}"
-        onkeydown="if(event.key==='Enter')_pfPickRegion(${idx})">
-      <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="_pfPickRegion(${idx})">확인 →</button>
+      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="_pfPickRegion(${idx})">확인 →</button>
     </div>`;
 }
 // 시·도 선택 시 → 해당 시·군·구 목록으로 갱신
@@ -337,14 +333,12 @@ async function _pfGetGPS(idx) {
 function _pfPickRegion(idx) {
   const sido = document.getElementById('pf-sido')?.value || '';
   const sigungu = document.getElementById('pf-sigungu')?.value || '';
-  const detail = document.getElementById('pf-addr-detail')?.value.trim() || '';
   if (!sido) { toast('시·도를 선택해주세요', 'error'); return; }
   const needSigungu = (KR_REGIONS[sido] || []).length > 0;
   if (needSigungu && !sigungu) { toast('시·군·구를 선택해주세요', 'error'); return; }
   _wz.data.region = sido;
   _wz.data.district = sigungu;
-  _wz.data.address_detail = detail;
-  _wz.data.address = [sido, sigungu, detail].filter(Boolean).join(' ');
+  _wz.data.address = [sido, sigungu].filter(Boolean).join(' ');
   _pfAnswer(idx, `📍 ${_wz.data.address}`);
 }
 function _wzLoadKakaoSDK() {

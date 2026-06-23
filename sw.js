@@ -1,8 +1,8 @@
-const CACHE = 'welfare-ai-v17';
+const CACHE = 'welfare-ai-v18';
 const ASSETS = [
   '/', '/index.html',
-  '/app.css?v=17', '/core.js?v=17', '/wizard.js?v=17',
-  '/dashboard.js?v=17', '/chat.js?v=17', '/strategy.js?v=17', '/calendar.js?v=17',
+  '/app.css?v=18', '/core.js?v=18', '/wizard.js?v=18',
+  '/dashboard.js?v=18', '/chat.js?v=18', '/strategy.js?v=18', '/calendar.js?v=18',
 ];
 
 self.addEventListener('install', e => {
@@ -21,8 +21,9 @@ self.addEventListener('fetch', e => {
   // chrome-extension, non-http 요청 무시
   if (!e.request.url.startsWith('http')) return;
   if (e.request.method !== 'GET') return;
-  // Supabase 등 외부 API는 캐시하지 않음
+  // Supabase / 서버리스 API 등은 캐시하지 않음
   if (e.request.url.includes('supabase.co') || e.request.url.includes('railway.app')) return;
+  if (e.request.url.includes('/api/')) return;
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
     if (!res || res.status !== 200 || res.type === 'opaque') return res;
     const clone = res.clone();

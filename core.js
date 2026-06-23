@@ -7,7 +7,8 @@
 const SUPABASE_URL  = 'https://hgnzljnjjzhcybqseikx.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhnbnpsam5qanpoY3licXNlaWt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjUzODksImV4cCI6MjA5NjIwMTM4OX0.qYu-Oj9QASMiHG5qPhzVB0plPvEZXPO1PGkr6QGBz5w';
 const RAILWAY_URL   = 'https://welfare-village-broadcaster-production.up.railway.app';
-const KAKAO_KEY     = '77ab39b1d04918d710e164d4c908b376';
+// 카카오 지도 JS 앱키 — Vercel 의 KAKAO_MAP_KEY 환경변수로 덮어씀 (없으면 아래 폴백 사용)
+let KAKAO_KEY       = '77ab39b1d04918d710e164d4c908b376';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -17,6 +18,12 @@ let currentPage = '';
 
 // ── 앱 초기화 ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+  // Vercel 환경변수에서 카카오 키 주입 (배포 환경) — 실패하면 하드코딩 폴백 사용
+  try {
+    const cfg = await fetch('/api/config').then(r => r.ok ? r.json() : null);
+    if (cfg?.kakaoKey) KAKAO_KEY = cfg.kakaoKey;
+  } catch (_) { /* 로컬/오프라인: 폴백 키 사용 */ }
+
   // PWA 서비스워커 등록 + 업데이트 시 자동 새로고침
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});

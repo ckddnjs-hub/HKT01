@@ -374,6 +374,12 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 /* 복지로 혜택 카드 — 상태 설정(받는중/관심/관심없음) */
 .welfare-card{transition:opacity .2s}
 .welfare-card.dim{opacity:.5}
+/* 홈 폴더 탭 (추천/받는중/관심/관심없음) */
+.dash-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:3px}
+.dash-tabs::-webkit-scrollbar{display:none}
+.dash-tab{flex-shrink:0;font-size:.76rem;font-weight:700;padding:7px 13px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s}
+.dash-tab:active{transform:scale(.96)}
+.dash-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
 .ws-status-row{display:flex;gap:6px;margin-top:10px}
 .ws-btn{
   flex:1;font-size:.72rem;padding:7px 4px;border-radius:8px;

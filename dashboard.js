@@ -4,6 +4,8 @@
 // ══════════════════════════════════════════════════════════════════════
 
 let _dashStrategyCache = null;
+let _dashTab = 'recommend';   // recommend | receiving | interested | not_interested
+let _dashLimit = 10;          // 현재 폴더에서 보여줄 개수 (더보기 +5)
 
 // ── 사용자 액션 저장소 (신청 도움 요청 / 캘린더 등록) ──────────────────
 function _loadSchedule() { try { return JSON.parse(localStorage.getItem('welfare_schedule') || '[]'); } catch { return []; } }
@@ -24,8 +26,24 @@ function renderDashboard() {
   const region = p?.district || p?.region || '지역 미입력';
   const benefits = _dashStrategyCache?.benefits || [];
   const statusMap = _wsLoadStatus();
-  const cnt = { receiving: 0, interested: 0, not_interested: 0 };
-  benefits.forEach(b => { const s = statusMap[b.service_id]; if (s) cnt[s]++; });
+  const cnt = { recommend: 0, receiving: 0, interested: 0, not_interested: 0 };
+  benefits.forEach(b => {
+    const s = statusMap[b.service_id || b.name];
+    if (s && cnt[s] != null) cnt[s]++; else cnt.recommend++;
+  });
+  // 현재 폴더(탭)에 해당하는 혜택만 필터 + 더보기 페이지네이션
+  const filtered = benefits.filter(b => {
+    const s = statusMap[b.service_id || b.name] || '';
+    return _dashTab === 'recommend' ? !s : s === _dashTab;
+  });
+  const visible = filtered.slice(0, _dashLimit);
+  const hasMore = filtered.length > visible.length;
+  const _tabs = [
+    { key: 'recommend',      label: '추천',     icon: '🔍' },
+    { key: 'receiving',      label: '받는중',   icon: '✅' },
+    { key: 'interested',     label: '관심',     icon: '⭐' },
+    { key: 'not_interested', label: '관심없음', icon: '✖' },
+  ];
 
   el.innerHTML = `
     <!-- 히어로 -->
@@ -51,41 +69,46 @@ function renderDashboard() {
 
       <!-- 복지로 맞춤 혜택 -->
       <div class="section-title">🏛️ 내 정보 기반 복지 혜택 (복지로)</div>
-      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
-        각 혜택을 보고 <b style="color:var(--primary)">받는 중</b> · <b style="color:var(--accent)">관심</b> · 관심없음을 표시해 주세요.<br>
-        ⭐ 관심 표시한 혜택은 <b>전략보드</b>에 모여요.
-      </div>
-      ${(cnt.receiving || cnt.interested) ? `
-        <div style="display:flex;gap:8px;margin-bottom:10px;font-size:.74rem">
-          <span class="badge badge-green">✅ 받는 중 ${cnt.receiving}</span>
-          <span class="badge badge-purple">⭐ 관심 ${cnt.interested}</span>
-          ${cnt.interested ? `<button style="margin-left:auto;font-size:.72rem;background:none;border:none;color:var(--accent);font-weight:700;cursor:pointer" onclick="navigateTo('strategy')">전략보드 →</button>` : ''}
-        </div>` : ''}
 
-      ${benefits.length > 0 ? benefits.map(b => {
-        const sid = b.service_id || b.name;
-        const st = statusMap[sid] || '';
-        return `
-        <div class="card welfare-card ${st==='not_interested'?'dim':''}" style="padding:14px">
-          <div style="display:flex;gap:10px">
-            <div class="benefit-icon" style="background:${_dashCatColor(b.category)}20;flex-shrink:0">${_dashCatIcon(b.category)}</div>
-            <div style="flex:1;min-width:0">
-              <div class="benefit-name">${esc(b.name)}</div>
-              <div class="benefit-amount">${esc(b.amount)}</div>
-              <div class="benefit-how">${esc(b.description)}</div>
-              <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px">${esc(b.agency || '')}${b.dept ? ' · ' + esc(b.dept) : ''}</div>
+      ${benefits.length > 0 ? `
+        <div style="font-size:.76rem;color:var(--text-muted);margin-bottom:10px;line-height:1.6">
+          각 혜택을 <b style="color:var(--primary)">받는중</b> · <b style="color:var(--accent)">관심</b> · 관심없음으로 분류하면 해당 폴더로 이동해요. ⭐관심은 <b>전략보드</b>에도 모여요.
+        </div>
+        <div class="dash-tabs">
+          ${_tabs.map(t => `<button class="dash-tab ${_dashTab===t.key?'active':''}" onclick="switchDashTab('${t.key}')">${t.icon} ${t.label} ${cnt[t.key]}</button>`).join('')}
+        </div>
+
+        ${visible.length ? visible.map(b => {
+          const sid = b.service_id || b.name;
+          const st = statusMap[sid] || '';
+          return `
+          <div class="card welfare-card" style="padding:14px">
+            <div style="display:flex;gap:10px">
+              <div class="benefit-icon" style="background:${_dashCatColor(b.category)}20;flex-shrink:0">${_dashCatIcon(b.category)}</div>
+              <div style="flex:1;min-width:0">
+                <div class="benefit-name">${esc(b.name)}</div>
+                <div class="benefit-amount">${esc(b.amount)}</div>
+                <div class="benefit-how">${esc(b.description)}</div>
+                <div style="font-size:.7rem;color:var(--text-dim);margin-top:4px">${esc(b.agency || '')}${b.dept ? ' · ' + esc(b.dept) : ''}</div>
+              </div>
             </div>
-          </div>
-          <div class="ws-status-row">
-            <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 받는 중</button>
-            <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
-            <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
-          </div>
-          <div style="text-align:right;margin-top:6px">
-            <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 보기 →</button>
-          </div>
-        </div>`;
-      }).join('') : `
+            <div class="ws-status-row">
+              <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 받는 중</button>
+              <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
+              <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
+            </div>
+            <div style="text-align:right;margin-top:6px">
+              <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 보기 →</button>
+            </div>
+          </div>`;
+        }).join('') : `
+          <div class="card" style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:.85rem">
+            ${_dashTab === 'recommend' ? '모든 혜택을 분류했어요 🎉' : '이 폴더에 담긴 혜택이 없어요'}
+          </div>`}
+
+        ${hasMore ? `<button class="btn btn-outline btn-full" style="margin-top:8px" onclick="_dashMore()">＋ 더보기 (${visible.length}/${filtered.length})</button>` : ''}
+        ${_dashTab === 'interested' && filtered.length ? `<button class="btn btn-outline btn-full" style="margin-top:8px" onclick="navigateTo('strategy')">📊 전략보드에서 자세히 관리 →</button>` : ''}
+      ` : `
         <div class="card" style="text-align:center;padding:32px 16px">
           ${_dashStrategyCache?.loading ? `
             <div class="spinner" style="margin:0 auto 12px"></div>
@@ -129,6 +152,18 @@ function _wsLoadStatus()    { try { return JSON.parse(localStorage.getItem('welf
 function _wsSaveStatus(o)   { try { localStorage.setItem('welfare_status', JSON.stringify(o)); } catch {} }
 function _wsLoadInterests() { try { return JSON.parse(localStorage.getItem('welfare_interests') || '[]'); } catch { return []; } }
 function _wsSaveInterests(a){ try { localStorage.setItem('welfare_interests', JSON.stringify(a)); } catch {} }
+
+// 폴더(탭) 전환 — 페이지네이션 초기화
+function switchDashTab(tab) {
+  _dashTab = tab;
+  _dashLimit = 10;
+  renderDashboard();
+}
+// 더보기 (+5)
+function _dashMore() {
+  _dashLimit += 5;
+  renderDashboard();
+}
 
 // 혜택 상태 설정 (같은 버튼 다시 누르면 해제)
 function setBenefitStatus(serviceId, status) {

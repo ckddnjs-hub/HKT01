@@ -5,7 +5,6 @@
 //  레이더차트(영역별 개수) + 항목 펼치기(간략설명 · 쉬운말 변환 · 도움요청 · 일정등록)
 // ══════════════════════════════════════════════════════════════════════
 
-let _radarChart      = null;
 let _stratExpanded   = new Set();   // 펼쳐진 항목 id
 let _stratDetailOpen = new Set();   // "자세히 보기" 펼친 항목 id
 let _stratSimplified = {};          // id → 쉬운 말 결과
@@ -62,7 +61,7 @@ function renderStrategy() {
         <!-- 레이더: 영역별 관심 혜택 개수 -->
         <div class="chart-wrap">
           <div class="chart-title">🎯 관심 혜택 영역별 분포</div>
-          <div class="radar-wrap"><canvas id="radar-chart"></canvas></div>
+          ${_areaRadarSVG(counts)}
           <div class="area-legend">
             ${STRAT_AREAS.map(a => `<span class="area-legend-item"><span style="color:${AREA_COLOR[a]}">${_areaSvg(a, 16)}</span> ${a} <b>${counts[a]}</b></span>`).join('')}
           </div>
@@ -81,8 +80,6 @@ function renderStrategy() {
       <div style="height:16px"></div>
     </div>
   `;
-
-  if (interests.length) setTimeout(() => _drawAreaRadar(counts), 100);
 
   // 아직 분류 안 된 항목이 있으면 GPT 분류 실행
   if (interests.some(i => !cats[i.service_id || i.name])) classifyInterests();
@@ -312,42 +309,46 @@ function _stratKeywordArea(i) {
   return '생활';
 }
 
-// ── 레이더차트 (영역별 개수) ──────────────────────────────────────────
-function _drawAreaRadar(counts) {
-  const canvas = document.getElementById('radar-chart');
-  if (!canvas) return;
-  if (_radarChart) { _radarChart.destroy(); _radarChart = null; }
+// ── 커스텀 SVG 레이더(육각형) — 꼭짓점에 영역 아이콘 + 최댓값 기준 스케일 ──
+function _pt(cx, cy, r, deg) {
+  const a = deg * Math.PI / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+function _areaRadarSVG(counts) {
+  const W = 260, H = 234, cx = 130, cy = 110, R = 70, iconR = R + 28;
+  const values = STRAT_AREAS.map(a => counts[a] || 0);
+  const maxV = Math.max(1, ...values);           // 최댓값(예: 교육 2) 이 바깥 테두리에 닿도록
+  const angles = STRAT_AREAS.map((_, i) => -90 + i * 60);
 
-  const labels = STRAT_AREAS;
-  const values = labels.map(a => counts[a] || 0);
-  const maxV = Math.max(3, ...values);
-
-  _radarChart = new Chart(canvas, {
-    type: 'radar',
-    data: {
-      labels,
-      datasets: [{
-        label: '관심 혜택 수',
-        data: values,
-        backgroundColor: 'rgba(169,156,255,.2)',
-        borderColor: '#a99cff',
-        borderWidth: 2,
-        pointBackgroundColor: '#a99cff',
-        pointRadius: 4,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        r: {
-          min: 0, max: maxV,
-          ticks: { display: true, stepSize: 1, precision: 0, color: '#8a8f98', backdropColor: 'transparent', z: 1 },
-          grid: { color: 'rgba(255,255,255,.08)' },
-          angleLines: { color: 'rgba(255,255,255,.08)' },
-          pointLabels: { color: '#A0AEBB', font: { size: 12, weight: '700' } },
-        },
-      },
-    },
+  // 그리드(3겹 육각형)
+  let grid = '';
+  [1/3, 2/3, 1].forEach(ring => {
+    const pts = angles.map(d => _pt(cx, cy, R * ring, d).map(n => n.toFixed(1)).join(',')).join(' ');
+    grid += `<polygon points="${pts}" fill="none" stroke="rgba(150,150,160,.22)" stroke-width="1"/>`;
   });
+  // 축선
+  let axes = '';
+  angles.forEach(d => { const [x, y] = _pt(cx, cy, R, d); axes += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(150,150,160,.18)" stroke-width="1"/>`; });
+
+  // 데이터 폴리곤
+  const dataPts = STRAT_AREAS.map((a, i) => _pt(cx, cy, R * ((counts[a] || 0) / maxV), angles[i]));
+  const dataStr = dataPts.map(p => p.map(n => n.toFixed(1)).join(',')).join(' ');
+  const dots = dataPts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="#a99cff"/>`).join('');
+
+  // 꼭짓점 아이콘 + 개수
+  let icons = '';
+  STRAT_AREAS.forEach((a, i) => {
+    const [ix, iy] = _pt(cx, cy, iconR, angles[i]);
+    icons += `<g transform="translate(${(ix - 9.6).toFixed(1)},${(iy - 9.6).toFixed(1)}) scale(0.8)" fill="none" stroke="${AREA_COLOR[a]}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${AREA_SVG[a]}</g>`;
+    if (counts[a]) icons += `<text x="${ix.toFixed(1)}" y="${(iy + 18).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${AREA_COLOR[a]}">${counts[a]}</text>`;
+  });
+
+  return `
+    <div style="display:flex;justify-content:center">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:300px">
+        ${grid}${axes}
+        <polygon points="${dataStr}" fill="rgba(169,156,255,.25)" stroke="#a99cff" stroke-width="2"/>
+        ${dots}${icons}
+      </svg>
+    </div>`;
 }

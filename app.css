@@ -441,6 +441,24 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .chat-tab-btn.active{color:var(--primary);border-bottom-color:var(--primary)}
 .chat-single-title{padding:12px 14px;font-weight:800;font-size:.92rem;color:var(--text)}
 
+/* AI 상담 — 추천 카드 / 액션 버튼 / 핸드오프 패킷 */
+.adv-cards{display:flex;flex-direction:column;gap:8px;margin:2px 0}
+.adv-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.adv-card-top{display:flex;align-items:center;gap:6px;justify-content:space-between;margin-bottom:4px}
+.adv-card-name{font-weight:700;font-size:.86rem;color:var(--text)}
+.adv-card-sup{font-size:.8rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px}
+.adv-card-meta{font-size:.74rem;color:var(--text-dim);line-height:1.5}
+.adv-card-link{display:inline-block;margin-top:5px;font-size:.76rem;color:var(--primary);font-weight:600;text-decoration:underline}
+.adv-btn-row{display:flex;gap:8px;margin-top:10px}
+.adv-btn{flex:1;font-size:.8rem;font-weight:700;padding:9px;border-radius:9px;border:1px solid var(--border);background:transparent;font-family:inherit;cursor:pointer;color:var(--text)}
+.adv-btn:active{transform:scale(.97)}
+.adv-btn.help{color:var(--accent);border-color:var(--accent)}
+.adv-btn.send{background:var(--primary);border-color:var(--primary);color:#fff}
+.adv-hint{font-size:.72rem;color:var(--text-dim);margin-top:6px;text-align:center}
+.adv-packet{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:11px 12px;margin-top:6px}
+.adv-packet-title{font-weight:800;font-size:.82rem;margin-bottom:6px}
+.adv-packet-row{font-size:.78rem;color:var(--text-muted);line-height:1.6}
+
 /* ?먥븧 梨꾪똿 ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧 */
 .chat-messages{padding:14px;display:flex;flex-direction:column;gap:10px;min-height:calc(100vh - 200px)}
 .chat-bubble{

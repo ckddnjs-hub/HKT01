@@ -7,6 +7,8 @@
 const SUPABASE_URL  = 'https://hgnzljnjjzhcybqseikx.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhnbnpsam5qanpoY3licXNlaWt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjUzODksImV4cCI6MjA5NjIwMTM4OX0.qYu-Oj9QASMiHG5qPhzVB0plPvEZXPO1PGkr6QGBz5w';
 const RAILWAY_URL   = 'https://welfare-village-broadcaster-production.up.railway.app';
+// 복지 어드바이저 API(LangGraph /advise/start·/advise/resume) — Vercel 환경변수 ADVISOR_URL 로 덮어씀
+let ADVISOR_URL     = 'https://welfare-advisor-api-production.up.railway.app';
 // 카카오 지도 JS 앱키 — Vercel 의 KAKAO_MAP_KEY 환경변수로 덮어씀 (없으면 아래 폴백 사용)
 let KAKAO_KEY       = '77ab39b1d04918d710e164d4c908b376';
 // 웹푸시(VAPID) 공개키 — 비공개키는 Vercel 환경변수 PUSH_KEY (서버리스에서 사용)
@@ -24,6 +26,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const cfg = await fetch('/api/config').then(r => r.ok ? r.json() : null);
     if (cfg?.kakaoKey) KAKAO_KEY = cfg.kakaoKey;
+    if (cfg?.advisorUrl) ADVISOR_URL = cfg.advisorUrl.replace(/\/$/, '');
   } catch (_) { /* 로컬/오프라인: 폴백 키 사용 */ }
 
   // PWA 서비스워커 등록 + 업데이트 시 자동 새로고침

@@ -1,0 +1,18 @@
+# === Web ===
+fastapi>=0.110
+uvicorn[standard]>=0.27
+
+# === Agent core (핵심: 제외 금지) ===
+langchain>=1.0
+langchain-core>=0.3
+langchain-openai>=0.2
+langgraph>=0.2
+langgraph-checkpoint-sqlite>=2.0
+
+# === Data ===
+supabase>=2.0
+pandas>=2.0
+
+# === Config / Observability ===
+python-dotenv>=1.0
+langfuse>=2.50

@@ -10,5 +10,6 @@ module.exports = function handler(req, res) {
 
   res.status(200).json({
     kakaoKey: process.env.KAKAO_MAP_KEY || '',
+    advisorUrl: process.env.ADVISOR_URL || '',
   });
 };

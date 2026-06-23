@@ -16,6 +16,9 @@ let _govStreaming  = false;
 // ── 현재 활성 탭 ─────────────────────────────────────────────────────
 let _chatTab = 'ai'; // 'ai' | 'gov'
 
+// ── 복지 어드바이저(LangGraph) 대화 상태 ─────────────────────────────
+let _advThreadId = null;   // /advise/start 에서 발급된 thread_id (멀티턴 유지)
+
 // ── 탭 전환 ──────────────────────────────────────────────────────────
 function switchChatTab(tab) {
   _chatTab = tab;
@@ -79,21 +82,21 @@ function _renderAiMessages(el) {
         <div style="font-size:3rem;margin-bottom:12px">🤖</div>
         <div style="font-weight:700;margin-bottom:8px">AI 복지 상담사</div>
         <div style="font-size:.83rem;color:var(--text-muted);line-height:1.7">
-          Railway AI가 맞춤 혜택 분석 및 대화를 도와드려요
+          내 정보를 바탕으로 맞춤 복지제도를 찾아드리고,<br>신청이 어려우면 담당자 연결까지 도와드려요
         </div>
       </div>
       <div style="padding:0 4px;display:flex;flex-direction:column;gap:8px">
-        ${['출산 후 받을 수 있는 혜택 알려줘', '월세 지원 신청 방법이 궁금해', '기초연금 받을 수 있나요?', '취업 준비 중 지원받을 수 있는 것은?'].map(q => `
+        ${['내가 받을 수 있는 복지 혜택 찾아줘', '월세·주거 지원이 필요해요', '일자리를 찾고 있어요', '몸이 아파서 의료비 지원이 필요해요'].map(q => `
           <button style="text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-family:inherit;font-size:.83rem;color:var(--text);cursor:pointer" onclick="chatQuickQuery('${esc(q)}')">
             💬 ${esc(q)}
           </button>`).join('')}
       </div>`;
     return;
   }
-  el.innerHTML = _chatHistory.map(h => `
-    <div class="chat-bubble ${h.role === 'user' ? 'user' : 'ai'}">
-      ${h.role === 'ai' ? _chatFormatAI(h.content) : esc(h.content)}
-    </div>`).join('');
+  el.innerHTML = _chatHistory.map(h => {
+    if (h.role === 'user') return `<div class="chat-bubble user">${esc(h.content)}</div>`;
+    return `<div class="chat-bubble ai">${h.html || _chatFormatAI(h.content || '')}</div>`;
+  }).join('');
   el.scrollTop = el.scrollHeight;
 }
 
@@ -185,7 +188,37 @@ function govQuickQuery(q) {
   setTimeout(() => _govDoSend(q), 150);
 }
 
-// ── Railway AI 전송 ───────────────────────────────────────────────────
+// ── MY_PROFILE → 어드바이저 Form 변환 ────────────────────────────────
+function _advisorForm(consultText) {
+  const p = MY_PROFILE || {};
+  let income_band = null;
+  const lv = p.income_level;
+  if (lv != null) income_band = lv <= 50 ? '50' : lv <= 75 ? '75' : lv <= 100 ? '100' : lv <= 200 ? '200' : 'over200';
+  let household_type = 'general';
+  if (p.household_type === 'single') household_type = 'single';
+  else if (p.household_type === 'family' || p.household_type === 'multichild') household_type = 'multichild';
+  const housingMap = { own: 'own', jeonse: 'jeonse', monthly_rent: 'wolse', public: 'etc', other: 'etc' };
+  const checklist = [];
+  if (p.has_disability) checklist.push('disabled');
+  if (p.has_pregnancy) checklist.push('perinatal');
+  if (p.has_infant) checklist.push('infant');
+  if (p.is_single_parent || p.household_type === 'single_parent') checklist.push('single_parent');
+  if (p.is_low_income) checklist.push('basic_recipient');
+  return {
+    gender: p.gender === 'female' ? 'F' : p.gender === 'male' ? 'M' : null,
+    birth_year: p.birth_year || null,
+    income_band,
+    region_sido: p.region || null,
+    region_sigungu: p.district || null,
+    household_type,
+    housing_type: housingMap[p.housing_type] || 'etc',
+    checklist,
+    consult_text: consultText || '',
+    top: 6,
+  };
+}
+
+// ── 첫 메시지 = /advise/start, 이후 = /advise/resume(refine) ──────────
 async function _chatDoSend(msg) {
   if (_chatStreaming) return;
   _chatStreaming = true;
@@ -196,33 +229,126 @@ async function _chatDoSend(msg) {
 
   el.innerHTML += `<div class="chat-bubble user">${esc(msg)}</div>`;
   const typingId = 'typing-' + Date.now();
-  el.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+  el.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><div class="typing-dots"><span></span><span></span><span></span></div><div style="font-size:.7rem;color:var(--text-dim);margin-top:4px">맞춤 복지를 찾는 중...</div></div>`;
   el.scrollTop = el.scrollHeight;
 
   try {
-    if (!_chatThreadId) _chatThreadId = (ME?.id || 'anon') + '-chat-' + Date.now();
-    const endpoint = _chatSearchDone ? '/api/personal/feedback' : '/api/personal/search';
-    const body = _chatSearchDone
-      ? { thread_id: _chatThreadId, feedback: msg }
-      : { thread_id: _chatThreadId, user_profile: typeof _buildUserProfile === 'function' ? _buildUserProfile(MY_PROFILE || {}) : { age: 40 }, message: msg };
-
-    const res = await fetch(`${RAILWAY_URL}${endpoint}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(res.status);
+    let res;
+    if (!_advThreadId) {
+      res = await fetch(`${ADVISOR_URL}/advise/start`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_advisorForm(msg)),
+      });
+    } else {
+      res = await fetch(`${ADVISOR_URL}/advise/resume`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thread_id: _advThreadId, action: 'refine', text: msg }),
+      });
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    const aiText = data.presented_text || data.response_text || (data.results ? `검색 결과 ${data.results.length}건을 찾았어요.` : '응답을 받았어요.');
-
-    document.getElementById(typingId)?.replaceWith(Object.assign(document.createElement('div'), { className: 'chat-bubble ai', innerHTML: _chatFormatAI(aiText) }));
-    _chatHistory.push({ role: 'ai', content: aiText });
-    _chatSearchDone = true;
+    document.getElementById(typingId)?.remove();
+    _advHandleResponse(data);
   } catch (e) {
-    const typingEl = document.getElementById(typingId);
-    if (typingEl) typingEl.innerHTML = '⚠️ 연결에 실패했어요. 잠시 후 다시 시도해주세요.';
+    console.error('advise error', e);
+    const t = document.getElementById(typingId);
+    if (t) t.innerHTML = '⚠️ 상담 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.';
   } finally {
     _chatStreaming = false;
     el.scrollTop = el.scrollHeight;
   }
+}
+
+// ── 버튼 액션(help/done/send) → /advise/resume ───────────────────────
+async function _advAction(action) {
+  if (_chatStreaming || !_advThreadId) return;
+  _chatStreaming = true;
+  const el = document.getElementById('chat-messages');
+  const typingId = 'typing-' + Date.now();
+  if (el) {
+    el.innerHTML += `<div class="chat-bubble ai" id="${typingId}"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+    el.scrollTop = el.scrollHeight;
+  }
+  try {
+    const res = await fetch(`${ADVISOR_URL}/advise/resume`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: _advThreadId, action, text: '' }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    document.getElementById(typingId)?.remove();
+    _advHandleResponse(data);
+  } catch (e) {
+    const t = document.getElementById(typingId);
+    if (t) t.innerHTML = '⚠️ 처리에 실패했어요.';
+  } finally {
+    _chatStreaming = false;
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+}
+
+// ── 응답 처리 (카드/핸드오프/버튼 렌더 + thread 상태) ─────────────────
+function _advHandleResponse(data) {
+  _advThreadId = data.thread_id || _advThreadId;
+  const intr = data.interrupt;
+  let html = '';
+
+  if (data.cards && data.cards.length) html += _advRenderCards(data.cards);
+  if (intr && intr.type === 'handoff_approve' && intr.packet) html += _advRenderPacket(intr.packet);
+
+  const message = (intr && intr.message) || data.message || '';
+  if (message) html += `<div style="margin-top:8px">${_chatFormatAI(message)}</div>`;
+
+  if (intr && intr.type === 'feedback') {
+    html += `<div class="adv-btn-row">
+        <button class="adv-btn help" onclick="_advAction('help')">🙋 신청 도움받기</button>
+        <button class="adv-btn done" onclick="_advAction('done')">✅ 완료</button>
+      </div>
+      <div class="adv-hint">더 찾고 싶은 게 있으면 메시지로 적어주세요</div>`;
+  } else if (intr && intr.type === 'handoff_approve') {
+    html += `<div class="adv-btn-row">
+        <button class="adv-btn send" onclick="_advAction('send')">📨 담당자에게 전달</button>
+        <button class="adv-btn done" onclick="_advAction('done')">취소</button>
+      </div>`;
+  } else {
+    // 종료 — 다음 메시지는 새 상담으로 시작
+    _advThreadId = null;
+  }
+
+  _chatHistory.push({ role: 'ai', html });
+  const el = document.getElementById('chat-messages');
+  if (el) { el.innerHTML += `<div class="chat-bubble ai">${html}</div>`; el.scrollTop = el.scrollHeight; }
+}
+
+// ── 추천 카드 렌더 ───────────────────────────────────────────────────
+function _advRenderCards(cards) {
+  const confCls = { '확실': 'badge-green', '조건부': 'badge-yellow', '참고': 'badge-purple' };
+  return `<div class="adv-cards">` + cards.map(c => `
+    <div class="adv-card">
+      <div class="adv-card-top">
+        <span class="adv-card-name">${c.local ? '🏠 ' : ''}${esc(c.service_name)}</span>
+        ${c.confidence ? `<span class="badge ${confCls[c.confidence] || 'badge-purple'}" style="font-size:.6rem;flex-shrink:0">${esc(c.confidence)}</span>` : ''}
+      </div>
+      ${c.support ? `<div class="adv-card-sup">${esc(c.support)}</div>` : ''}
+      <div class="adv-card-meta">📍 ${esc(c.receiving_agency || '주민센터')}${c.contact ? ` · ☎ ${esc(c.contact)}` : ''}</div>
+      <div class="adv-card-meta">📝 ${esc(c.apply_method || '주민센터 문의')} · 마감 ${esc(c.deadline || '상시')}</div>
+      ${c.detail_url ? `<a href="${esc(c.detail_url)}" target="_blank" rel="noopener" class="adv-card-link">자세히 보기 ↗</a>` : ''}
+    </div>`).join('') + `</div>`;
+}
+
+// ── 복지사 전달 패킷 렌더 ────────────────────────────────────────────
+function _advRenderPacket(packet) {
+  const s = packet['민원인_요약'] || {};
+  const recs = packet['추천제도'] || [];
+  const reg = s['지역'] ? `${s['지역'].sido || ''} ${s['지역'].sigungu || ''}`.trim() : '-';
+  return `<div class="adv-packet">
+    <div class="adv-packet-title">📋 복지사 전달 내용 확인</div>
+    <div class="adv-packet-row">· 지역: ${esc(reg || '-')}</div>
+    <div class="adv-packet-row">· 연령: ${esc(String(s['연령'] ?? '-'))} · 소득구간: ${esc(String(s['소득구간'] ?? '-'))}</div>
+    ${s['필요'] ? `<div class="adv-packet-row">· 필요: ${esc(s['필요'])}</div>` : ''}
+    <div class="adv-packet-row">· 추천제도: ${recs.map(r => esc(r['제도명'])).join(', ') || '-'}</div>
+    ${packet['막힌_지점'] ? `<div class="adv-packet-row" style="color:var(--warn)">· 막힌 점: ${esc(packet['막힌_지점'])}</div>` : ''}
+  </div>`;
 }
 
 // ── 복지로(GPT) 전송 ─────────────────────────────────────────────────

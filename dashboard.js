@@ -85,8 +85,11 @@ function renderDashboard() {
           return `
           <div class="card welfare-card" style="padding:14px">
             <div class="wc-toolbar">
-              <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운말</button>
-              <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 →</button>
+              <span class="wc-tip">ℹ️ 이 혜택 알아보기</span>
+              <div class="wc-tools">
+                <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운말</button>
+                <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 →</button>
+              </div>
             </div>
             <div style="display:flex;gap:10px">
               <div class="benefit-icon" style="background:${_dashCatColor(b.category)}20;flex-shrink:0">${_dashCatIcon(b.category)}</div>

@@ -128,6 +128,7 @@ async function setPush(on) {
     toast('알림을 껐어요');
   }
   if (currentPage === 'profile') renderProfilePage();
+  if (currentPage === 'calendar') renderCalendar();
 }
 
 // ── 이름/닉네임 저장 ─────────────────────────────────────────────────
@@ -212,13 +213,20 @@ function renderProfilePage() {
         </div>
       </div>
       <div class="card" style="padding:0 16px">
-        ${profileRow('거주 지역', p?.address || p?.region || '-')}
-        ${profileRow('가구 구성', householdLabel[p?.household_type] || '-')}
-        ${profileRow('가구 소득', p?.income_amount ? `월 ${p.income_amount}만원` : '-')}
-        ${profileRow('중위소득', p?.income_level ? `${p.income_level}%` : '-')}
-        ${profileRow('거주 형태', housingLabel[p?.housing_type] || '-')}
+        ${profileEditRow('거주 지역', p?.address || p?.region || '-', 'region')}
+        ${profileEditRow('가구 구성', householdLabel[p?.household_type] || '-', 'household_type')}
+        ${profileEditRow('가구 소득', p?.income_amount ? `월 ${p.income_amount}만원` : '-', 'income_amount')}
+        ${profileEditRow('중위소득', p?.income_level ? `${p.income_level}%` : '-', 'income_level')}
+        ${profileEditRow('거주 형태', housingLabel[p?.housing_type] || '-', 'housing_type')}
       </div>
-      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="navigateTo('wizard')">✏️ 상세 정보 다시 입력</button>
+
+      <div class="section-title">추가 정보</div>
+      <div class="card" style="padding:0 16px">
+        ${profileEditRow('장애 여부', p?.has_disability ? '있음' : '없음', 'has_disability')}
+        ${profileEditRow('임신/출산', p?.has_pregnancy ? '해당' : '해당없음', 'has_pregnancy')}
+        ${profileEditRow('영유아 자녀', p?.has_infant ? '있음' : '없음', 'has_infant')}
+        ${profileEditRow('기초/차상위', p?.is_low_income ? '해당' : '해당없음', 'is_low_income')}
+      </div>
 
       <div class="section-title">설정</div>
       <div class="card">
@@ -247,20 +255,123 @@ function renderProfilePage() {
         ${pushOn ? `<button class="btn btn-outline btn-full" style="margin-top:6px" onclick="sendTestPush()">🧪 테스트 알림 보내기</button>` : ''}
       </div>
 
-      <div class="section-title">추가 정보</div>
-      <div class="card" style="padding:0 16px">
-        ${profileRow('장애 여부', p?.has_disability ? '있음' : '없음')}
-        ${profileRow('임신/출산', p?.has_pregnancy ? '해당' : '해당없음')}
-        ${profileRow('영유아 자녀', p?.has_infant ? '있음' : '없음')}
-        ${profileRow('기초/차상위', p?.is_low_income ? '해당' : '해당없음')}
-      </div>
-
       <div style="height:100px"></div>
     </div>
   `;
 }
 function profileRow(label, value) {
   return `<div class="profile-item"><span class="profile-item-label">${label}</span><span class="profile-item-value">${value}</span></div>`;
+}
+function profileEditRow(label, value, field) {
+  return `<div class="profile-item">
+    <span class="profile-item-label">${label}</span>
+    <span style="display:flex;align-items:center;gap:8px;min-width:0">
+      <span class="profile-item-value" style="text-align:right">${value}</span>
+      <button class="pf-edit-mini" onclick="editProfileField('${field}')">수정</button>
+    </span>
+  </div>`;
+}
+
+// ── 항목별 개별 수정 ─────────────────────────────────────────────────
+const PROFILE_FIELDS = {
+  region:         { label: '거주 지역', type: 'region' },
+  household_type: { label: '가구 구성', type: 'select', options: [['single','1인 가구'],['couple','부부'],['family','자녀 포함 가족'],['single_parent','한부모 가정'],['other','기타']] },
+  income_amount:  { label: '가구 소득(월, 만원)', type: 'number' },
+  income_level:   { label: '중위소득', type: 'select', options: [['50','50% 이하'],['75','75% 이하'],['100','100% 이하'],['150','150% 이하'],['200','200% 이하'],['999','200% 초과']] },
+  housing_type:   { label: '거주 형태', type: 'select', options: [['own','자가'],['jeonse','전세'],['monthly_rent','월세'],['public','공공임대'],['other','기타']] },
+  has_disability: { label: '장애 여부', type: 'bool' },
+  has_pregnancy:  { label: '임신/출산', type: 'bool' },
+  has_infant:     { label: '영유아 자녀', type: 'bool' },
+  is_low_income:  { label: '기초/차상위', type: 'bool' },
+};
+let _peBoolVal = false;
+
+function editProfileField(field) {
+  const cfg = PROFILE_FIELDS[field];
+  if (!cfg) return;
+  const p = MY_PROFILE || {};
+  let inner = '';
+  if (cfg.type === 'region') {
+    const sido = p.region || '', sigungu = p.district || '';
+    const regions = (typeof KR_REGIONS !== 'undefined') ? KR_REGIONS : {};
+    inner = `<div style="display:flex;gap:8px">
+      <select id="pe-sido" class="pf-input" style="flex:1" onchange="_peSido(this.value)">
+        <option value="">시·도</option>
+        ${Object.keys(regions).map(s => `<option value="${s}" ${s===sido?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <select id="pe-sigungu" class="pf-input" style="flex:1">
+        <option value="">시·군·구</option>
+        ${(regions[sido]||[]).map(d => `<option value="${d}" ${d===sigungu?'selected':''}>${d}</option>`).join('')}
+      </select>
+    </div>`;
+  } else if (cfg.type === 'select') {
+    const cur = String(p[field] ?? '');
+    inner = `<select id="pe-val" class="pf-input" style="width:100%">
+      ${cfg.options.map(([v,l]) => `<option value="${v}" ${String(v)===cur?'selected':''}>${l}</option>`).join('')}
+    </select>`;
+  } else if (cfg.type === 'number') {
+    inner = `<input type="number" id="pe-val" class="pf-input" style="width:100%" inputmode="numeric" value="${p[field] ?? ''}" placeholder="숫자만 입력 (만원)">`;
+  } else if (cfg.type === 'bool') {
+    _peBoolVal = !!p[field];
+    inner = `<div class="seg" style="justify-content:flex-start">
+      <button class="btn btn-sm ${_peBoolVal?'btn-primary':'btn-outline'}" id="pe-yes" onclick="_peBool(true)">예 / 해당</button>
+      <button class="btn btn-sm ${!_peBoolVal?'btn-primary':'btn-outline'}" id="pe-no" onclick="_peBool(false)">아니오 / 해당없음</button>
+    </div>`;
+  }
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'pe-modal';
+  overlay.onclick = (e) => { if (e.target === overlay) _closeProfileModal(); };
+  overlay.innerHTML = `<div class="modal-box">
+    <div class="modal-title">✏️ ${cfg.label} 수정</div>
+    <div style="margin-top:14px">${inner}</div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="_closeProfileModal()">취소</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveProfileField('${field}')">저장</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+function _peSido(sido) {
+  const sg = document.getElementById('pe-sigungu');
+  const regions = (typeof KR_REGIONS !== 'undefined') ? KR_REGIONS : {};
+  if (sg) sg.innerHTML = `<option value="">시·군·구</option>` + (regions[sido]||[]).map(d => `<option value="${d}">${d}</option>`).join('');
+}
+function _peBool(v) {
+  _peBoolVal = v;
+  document.getElementById('pe-yes')?.classList.toggle('btn-primary', v);
+  document.getElementById('pe-yes')?.classList.toggle('btn-outline', !v);
+  document.getElementById('pe-no')?.classList.toggle('btn-primary', !v);
+  document.getElementById('pe-no')?.classList.toggle('btn-outline', v);
+}
+function _closeProfileModal() {
+  document.getElementById('pe-modal')?.remove();
+}
+async function saveProfileField(field) {
+  const cfg = PROFILE_FIELDS[field];
+  if (!cfg) return;
+  const updates = {};
+  if (cfg.type === 'region') {
+    const sido = document.getElementById('pe-sido')?.value || '';
+    const sigungu = document.getElementById('pe-sigungu')?.value || '';
+    if (!sido) { toast('시·도를 선택해주세요', 'error'); return; }
+    updates.region = sido;
+    updates.district = sigungu;
+    updates.address = [sido, sigungu].filter(Boolean).join(' ');
+  } else if (cfg.type === 'bool') {
+    updates[field] = _peBoolVal;
+  } else {
+    let v = document.getElementById('pe-val')?.value;
+    if (cfg.type === 'number') v = v ? parseInt(v) : null;
+    if (field === 'income_level') { v = parseInt(v); updates.is_low_income = v <= 50; }
+    updates[field] = v;
+    if (field === 'household_type') updates.is_single_parent = (v === 'single_parent');
+  }
+  await saveProfile(updates);
+  _closeProfileModal();
+  toast('수정했어요', 'success');
+  updateHeaderAvatar();
+  renderProfilePage();
 }
 
 // ── PWA 푸시 권한 요청 ────────────────────────────────────────────────

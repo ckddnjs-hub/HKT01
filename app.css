@@ -160,6 +160,8 @@ body:not(.light) .badge-green{background:rgba(15,123,108,.2);color:#4ec9b0}
 .set-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 2px;border-bottom:1px solid var(--border)}
 .set-row:last-of-type{border-bottom:none}
 .set-label{font-size:.86rem;font-weight:600;flex-shrink:0}
+.pf-edit-mini{flex-shrink:0;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--primary);font-family:inherit;cursor:pointer}
+.pf-edit-mini:active{transform:scale(.95)}
 .seg{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .btn-lg{padding:12px 20px;font-size:.95rem}
 

@@ -11,6 +11,7 @@ function renderCalendar() {
   if (!el) return;
 
   const events = _calBuildEvents();
+  const pushOn = localStorage.getItem('push_enabled') === '1';
   el.innerHTML = `
     <div style="padding:16px 16px 0">
       <div style="font-size:1.1rem;font-weight:900;margin-bottom:4px">📅 AI 혜택 캘린더</div>
@@ -39,19 +40,21 @@ function renderCalendar() {
       ${_renderMyList()}
     </div>
 
-    <!-- 푸시 알림 설정 -->
+    <!-- 푸시 알림 테스트 -->
     <div style="padding:16px">
       <div class="card" style="background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3)">
-        <div style="display:flex;align-items:center;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:${pushOn ? '10px' : '0'}">
           <div style="font-size:1.5rem">🔔</div>
           <div style="flex:1">
-            <div style="font-weight:700;font-size:.9rem;margin-bottom:3px">마감 알림 받기</div>
-            <div style="font-size:.78rem;color:var(--text-muted)">마감 3일 전에 푸시 알림을 보내드려요</div>
+            <div style="font-weight:700;font-size:.9rem;margin-bottom:3px">푸시 알림</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">알림을 켜고 테스트해보세요</div>
           </div>
-          <button class="btn btn-outline" style="padding:8px 14px;font-size:.8rem" onclick="requestPushPermission()">
-            설정
-          </button>
+          <div class="seg">
+            <button class="btn btn-sm ${pushOn ? 'btn-primary' : 'btn-outline'}" onclick="setPush(true)">ON</button>
+            <button class="btn btn-sm ${!pushOn ? 'btn-primary' : 'btn-outline'}" onclick="setPush(false)">OFF</button>
+          </div>
         </div>
+        ${pushOn ? `<button class="btn btn-outline btn-full" onclick="sendTestPush()">🧪 테스트 알림 보내기</button>` : ''}
       </div>
     </div>
 

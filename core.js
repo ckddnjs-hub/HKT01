@@ -9,6 +9,8 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const RAILWAY_URL   = 'https://welfare-village-broadcaster-production.up.railway.app';
 // 카카오 지도 JS 앱키 — Vercel 의 KAKAO_MAP_KEY 환경변수로 덮어씀 (없으면 아래 폴백 사용)
 let KAKAO_KEY       = '77ab39b1d04918d710e164d4c908b376';
+// 웹푸시(VAPID) 공개키 — 비공개키는 Vercel 환경변수 PUSH_KEY (서버리스에서 사용)
+const VAPID_PUBLIC_KEY = 'BEGPZAvkXbZXmo7zu8GgFGi_C9cHE2XMf9fkENJ17w-AdTiU-dcNAtBj7xULHciWGGLeNUiY9wH3-BLOK9P0vLI';
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -171,6 +173,9 @@ function renderProfilePage() {
       <button class="btn btn-outline btn-full" style="margin-top:8px;color:var(--danger);border-color:var(--danger)" onclick="requestPushPermission()">
         🔔 혜택 마감 알림 받기
       </button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="sendTestPush()">
+        🧪 테스트 알림 보내기
+      </button>
       <div style="height:16px"></div>
     </div>
   `;
@@ -181,20 +186,52 @@ function profileRow(label, value) {
 
 // ── PWA 푸시 권한 요청 ────────────────────────────────────────────────
 async function requestPushPermission() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    toast('이 브라우저는 푸시 알림을 지원하지 않아요', 'error'); return;
+  }
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') { toast('알림 권한이 거부됐어요', 'error'); return; }
-  const reg = await navigator.serviceWorker.ready;
-  // VAPID 공개키는 백엔드에서 받아오거나 직접 입력
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(window.VAPID_PUBLIC_KEY || ''),
-  });
-  await fetch(`${RAILWAY_URL}/api/push/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId: ME?.id, subscription: sub }),
-  });
-  toast('혜택 마감 알림이 설정됐어요 🔔', 'success');
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    // 구독 정보 저장 — Supabase(로그인 시) + localStorage
+    try { localStorage.setItem('push_subscription', JSON.stringify(sub)); } catch (_) {}
+    if (ME) {
+      await sb.from('push_subscriptions').upsert(
+        { user_id: ME.id, subscription: sub },
+        { onConflict: 'user_id' }
+      );
+    }
+    toast('혜택 마감 알림이 설정됐어요 🔔', 'success');
+  } catch (e) {
+    console.error('push subscribe error', e);
+    toast('알림 설정에 실패했어요', 'error');
+  }
+}
+
+// 테스트 알림 보내기 (Vercel /api/push/send → PUSH_KEY 사용)
+async function sendTestPush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) { toast('먼저 "알림 받기"를 설정해주세요', 'error'); return; }
+    const r = await fetch('/api/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub, title: '복지혜택 AI 🔔', body: '알림이 정상적으로 작동합니다!', url: '/' }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.sent) toast('테스트 알림을 보냈어요 🔔', 'success');
+    else toast('전송 실패: ' + (d.error || '서버 확인 필요'), 'error', 3500);
+  } catch (e) {
+    toast('오류: ' + e.message, 'error');
+  }
 }
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);

@@ -7,6 +7,7 @@ let _chatHistory   = [];
 let _chatStreaming = false;
 let _chatTab       = 'ai';
 let _advThreadId   = null;   // /advise/start 에서 발급된 thread_id (멀티턴 유지)
+let _advCards      = [];     // 최근 추천 카드 (카드별 관심/도움 액션용)
 
 // ── 전체 채팅 페이지 렌더 ────────────────────────────────────────────
 function renderChat() {
@@ -250,18 +251,16 @@ function _advHandleResponse(data) {
   const intr = data.interrupt;
   let html = '';
 
-  if (data.cards && data.cards.length) html += _advRenderCards(data.cards);
+  // 추천 카드는 검색 결과(feedback) 응답에서만 표시 (도움/종료에선 재노출 안 함)
+  if (intr && intr.type === 'feedback' && data.cards && data.cards.length) html += _advRenderCards(data.cards);
   if (intr && intr.type === 'handoff_approve' && intr.packet) html += _advRenderPacket(intr.packet);
 
   const message = (intr && intr.message) || data.message || '';
   if (message) html += `<div style="margin-top:8px">${_chatFormatAI(message)}</div>`;
 
   if (intr && intr.type === 'feedback') {
-    html += `<div class="adv-btn-row">
-        <button class="adv-btn help" onclick="_advAction('help')">🙋 신청 도움받기</button>
-        <button class="adv-btn done" onclick="_advAction('done')">✅ 완료</button>
-      </div>
-      <div class="adv-hint">더 찾고 싶은 게 있으면 메시지로 적어주세요</div>`;
+    html += `<div class="adv-hint">각 혜택에서 <b>⭐관심</b> · <b>📞도움받기</b>를 선택하거나, 더 찾고 싶은 내용을 메시지로 적어주세요</div>
+      <div class="adv-btn-row"><button class="adv-btn done" onclick="_advAction('done')">✅ 상담 마치기</button></div>`;
   } else if (intr && intr.type === 'handoff_approve') {
     html += `<div class="adv-btn-row">
         <button class="adv-btn send" onclick="_advAction('send')">📨 담당자에게 전달</button>
@@ -277,10 +276,15 @@ function _advHandleResponse(data) {
   if (el) { el.innerHTML += `<div class="chat-bubble ai">${html}</div>`; el.scrollTop = el.scrollHeight; }
 }
 
-// ── 추천 카드 렌더 ───────────────────────────────────────────────────
+// ── 추천 카드 렌더 (카드별 관심/도움 버튼 포함) ──────────────────────
 function _advRenderCards(cards) {
+  _advCards = cards;
   const confCls = { '확실': 'badge-green', '조건부': 'badge-yellow', '참고': 'badge-purple' };
-  return `<div class="adv-cards">` + cards.map(c => `
+  const interests = (typeof _wsLoadInterests === 'function') ? _wsLoadInterests() : [];
+  const helps = (typeof _loadHelpReqs === 'function') ? _loadHelpReqs() : [];
+  const isIntr = (n) => interests.some(i => (i.service_id || i.name) === n);
+  const isHelp = (n) => helps.some(r => r.benefit_name === n);
+  return `<div class="adv-cards">` + cards.map((c, idx) => `
     <div class="adv-card">
       <div class="adv-card-top">
         <span class="adv-card-name">${c.local ? '🏠 ' : ''}${esc(c.service_name)}</span>
@@ -290,7 +294,60 @@ function _advRenderCards(cards) {
       <div class="adv-card-meta">📍 ${esc(c.receiving_agency || '주민센터')}${c.contact ? ` · ☎ ${esc(c.contact)}` : ''}</div>
       <div class="adv-card-meta">📝 ${esc(c.apply_method || '주민센터 문의')} · 마감 ${esc(c.deadline || '상시')}</div>
       ${c.detail_url ? `<a href="${esc(c.detail_url)}" target="_blank" rel="noopener" class="adv-card-link">자세히 보기 ↗</a>` : ''}
+      <div class="adv-card-acts">
+        <button class="adv-card-btn intr ${isIntr(c.service_name)?'on':''}" onclick="_advInterest(${idx}, this)">${isIntr(c.service_name) ? '⭐ 관심됨' : '⭐ 관심'}</button>
+        <button class="adv-card-btn help ${isHelp(c.service_name)?'on':''}" onclick="_advHelp(${idx}, this)">${isHelp(c.service_name) ? '✅ 도움요청됨' : '📞 도움받기'}</button>
+      </div>
     </div>`).join('') + `</div>`;
+}
+
+// 카드 → 관심(전략보드 추가)
+function _advInterest(idx, btn) {
+  const c = _advCards[idx];
+  if (!c) return;
+  const id = c.service_name;
+  const interests = _wsLoadInterests();
+  if (interests.some(i => (i.service_id || i.name) === id)) {
+    if (btn) { btn.classList.add('on'); btn.textContent = '⭐ 관심됨'; }
+    toast('이미 관심에 추가했어요', 'info'); return;
+  }
+  interests.push({
+    service_id: id,
+    name: c.service_name,
+    category: (typeof _fieldToCategory === 'function') ? _fieldToCategory(c.field, c.service_name) : '생활지원',
+    amount: (typeof _extractAmount === 'function') ? _extractAmount(c.support) : '지원 있음',
+    description: c.support || '',
+    content_full: [c.support, c.apply_method ? `\n[신청방법] ${c.apply_method}` : '', c.receiving_agency ? `\n[접수처] ${c.receiving_agency}` : '', c.contact ? `\n[문의] ${c.contact}` : ''].filter(Boolean).join(''),
+    agency: c.receiving_agency || '',
+    apply_url: c.detail_url || '',
+    how_to_apply: c.apply_method || '',
+  });
+  _wsSaveInterests(interests);
+  const st = _wsLoadStatus(); st[id] = 'interested'; _wsSaveStatus(st);
+  if (btn) { btn.classList.add('on'); btn.textContent = '⭐ 관심됨'; }
+  toast('⭐ 전략보드에 추가했어요', 'success');
+}
+
+// 카드 → 도움받기(해당 혜택만 담당기관 요청)
+async function _advHelp(idx, btn) {
+  const c = _advCards[idx];
+  if (!c) return;
+  const name = c.service_name, agency = c.receiving_agency || '';
+  const reqs = _loadHelpReqs();
+  if (reqs.some(r => r.benefit_name === name)) {
+    if (btn) { btn.classList.add('on'); btn.textContent = '✅ 도움요청됨'; }
+    toast('이미 도움을 요청했어요', 'info'); return;
+  }
+  const p = MY_PROFILE || {};
+  const region = [p.region, p.district].filter(Boolean).join(' ');
+  reqs.push({ benefit_name: name, agency_name: agency, region, requested_at: new Date().toISOString() });
+  localStorage.setItem('benefit_help_requests', JSON.stringify(reqs));
+  if (btn) { btn.classList.add('on'); btn.textContent = '✅ 도움요청됨'; }
+  if (ME) {
+    try { await sb.from('benefit_help_requests').insert({ user_id: ME.id, benefit_name: name, agency_name: agency, region, profile_snapshot: p, status: 'pending' }); }
+    catch (e) { console.warn('help insert 실패(테이블 미생성 가능):', e.message); }
+  }
+  toast('담당 기관에 신청 도움을 요청했어요 📞', 'success');
 }
 
 // ── 복지사 전달 패킷 렌더 ────────────────────────────────────────────

@@ -6,6 +6,7 @@
 let _dashStrategyCache = null;
 let _dashTab = 'recommend';   // recommend | receiving | interested | not_interested
 let _dashLimit = 10;          // 현재 폴더에서 보여줄 개수 (더보기 +5)
+let _dashSimplified = {};     // service_id → GPT 쉬운 말 결과
 
 // ── 사용자 액션 저장소 (신청 도움 요청 / 캘린더 등록) ──────────────────
 function _loadSchedule() { try { return JSON.parse(localStorage.getItem('welfare_schedule') || '[]'); } catch { return []; } }
@@ -97,7 +98,9 @@ function renderDashboard() {
               <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
               <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
             </div>
-            <div style="text-align:right;margin-top:6px">
+            ${_dashSimplified[sid] ? `<div class="ws-easy">🟢 <b>쉬운 설명</b><br>${esc(_dashSimplified[sid])}</div>` : ''}
+            <div class="ws-detail-row">
+              <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운 말로</button>
               <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 보기 →</button>
             </div>
           </div>`;
@@ -152,6 +155,33 @@ function switchDashTab(tab) {
 function _dashMore() {
   _dashLimit += 5;
   renderDashboard();
+}
+
+// 스크롤 위치 유지하며 재렌더
+function _dashRerenderKeepScroll() {
+  const sc = document.getElementById('app-body');
+  const y = sc ? sc.scrollTop : 0;
+  renderDashboard();
+  if (sc) sc.scrollTop = y;
+}
+
+// 홈 카드 — GPT 쉬운 말 변환
+async function _dashSimplify(sid) {
+  const b = (_dashStrategyCache?.benefits || []).find(x => (x.service_id || x.name) === sid);
+  if (!b) return;
+  _dashSimplified[sid] = '(쉬운 말로 바꾸는 중…)';
+  _dashRerenderKeepScroll();
+  try {
+    const r = await fetch('/api/gpt-assist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'simplify', name: b.name, text: b.content_full || b.description || b.name }),
+    });
+    const d = await r.json();
+    _dashSimplified[sid] = d.text || d.error || '쉬운 설명을 만들지 못했어요.';
+  } catch (e) {
+    _dashSimplified[sid] = '⚠️ 변환에 실패했어요. 잠시 후 다시 시도해주세요.';
+  }
+  _dashRerenderKeepScroll();
 }
 
 // 혜택 상태 설정 (같은 버튼 다시 누르면 해제)

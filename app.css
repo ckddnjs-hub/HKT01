@@ -398,8 +398,11 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .ws-btn.recv.on{background:var(--primary-light);border-color:var(--primary);color:var(--primary);font-weight:700}
 .ws-btn.intr.on{background:rgba(169,156,255,.18);border-color:var(--accent);color:var(--accent);font-weight:700}
 .ws-btn.noint.on{background:var(--bg3);border-color:var(--border-strong);color:var(--text-dim);font-weight:700}
-.ws-detail{font-size:.72rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:inherit}
+.ws-detail-row{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+.ws-detail{font-size:.74rem;background:none;border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-muted);cursor:pointer;font-family:inherit}
+.ws-detail:active{transform:scale(.96)}
 .ws-detail:hover{color:var(--primary)}
+.ws-easy{font-size:.82rem;color:var(--text);line-height:1.6;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.25);border-radius:9px;padding:9px 11px;margin-top:8px}
 
 /* 전략보드 — 관심 혜택 영역 분류 */
 .area-legend{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:center;margin-top:12px;font-size:.74rem;color:var(--text-muted)}
@@ -480,6 +483,12 @@ body.light .chat-bubble.user{color:#fff}
 }
 body.light .chat-bubble.ai{box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .chat-bubble.ai b{color:var(--primary)}
+/* 채팅 화면: 입력바 아래~네비 사이 빈 공간을 배경으로 가려 메시지 비침 방지 */
+#page-chat.active::after{
+  content:'';position:fixed;left:0;right:0;
+  bottom:calc(60px + env(safe-area-inset-bottom,0px));
+  height:44px;background:var(--bg);z-index:199;pointer-events:none;
+}
 .chat-input-bar{
   position:fixed;bottom:calc(94px + env(safe-area-inset-bottom,0px));left:0;right:0;
   background:var(--bg);border-top:1px solid var(--border);

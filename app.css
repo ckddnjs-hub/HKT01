@@ -65,7 +65,8 @@ body.ready{visibility:visible}
   box-shadow:0 1px 10px rgba(0,0,0,.18);
   transition:background .2s;
 }
-.app-header-logo{font-size:1.1rem;font-weight:800;color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;letter-spacing:-.02em;text-shadow:0 1px 2px rgba(0,0,0,.15)}
+.app-header-logo{font-size:1.1rem;font-weight:800;color:#fff;cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:-.02em;text-shadow:0 1px 2px rgba(0,0,0,.15)}
+.logo-svg{flex-shrink:0;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
 body.light .app-header-logo{color:#fff}
 .header-right{display:flex;align-items:center;gap:6px}
 .header-avatar{

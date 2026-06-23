@@ -387,6 +387,30 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
 .ws-detail{font-size:.72rem;background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:inherit}
 .ws-detail:hover{color:var(--primary)}
 
+/* 전략보드 — 관심 혜택 영역 분류 */
+.area-legend{display:flex;flex-wrap:wrap;gap:8px 12px;justify-content:center;margin-top:12px;font-size:.74rem;color:var(--text-muted)}
+.area-legend-item b{color:var(--text);margin-left:1px}
+.intr-area-head{font-size:.84rem;font-weight:800;margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+.intr-card{overflow:hidden}
+.intr-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.intr-name{font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.intr-amount{font-size:.78rem;color:var(--primary);font-weight:600;margin-top:1px}
+.intr-chevron{color:var(--text-dim);font-size:.85rem;flex-shrink:0}
+.intr-body{padding:0 14px 14px;border-top:1px solid var(--border)}
+.intr-desc{font-size:.82rem;color:var(--text-muted);line-height:1.65;margin:10px 0}
+.intr-easy{font-size:.83rem;color:var(--text);line-height:1.7;background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.25);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.intr-btn-row{display:flex;gap:8px;margin-bottom:8px}
+.intr-easy-btn{flex:1;font-size:.76rem;padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;cursor:pointer;transition:all .15s}
+.intr-easy-btn:active{transform:scale(.97)}
+.intr-act-row{display:flex;gap:8px}
+.intr-act{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:.78rem;font-weight:700;padding:9px;border-radius:8px;border:1px solid var(--border);background:transparent;font-family:inherit;cursor:pointer;color:var(--text)}
+.intr-act:active{transform:scale(.97)}
+.intr-act.consult{color:var(--accent);border-color:var(--accent)}
+.intr-act.cal{color:var(--primary);border-color:var(--primary);position:relative;overflow:hidden}
+.intr-act.cal input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.intr-remove{width:100%;margin-top:10px;background:none;border:none;color:var(--text-dim);font-size:.74rem;cursor:pointer;font-family:inherit}
+.intr-remove:hover{color:var(--danger)}
+
 /* ?먥븧 梨꾪똿 ???먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??*/
 .chat-tab-bar{
   display:flex;border-bottom:1px solid var(--border);

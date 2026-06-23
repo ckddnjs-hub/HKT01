@@ -84,6 +84,10 @@ function renderDashboard() {
           const st = statusMap[sid] || '';
           return `
           <div class="card welfare-card" style="padding:14px">
+            <div class="wc-toolbar">
+              <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운말</button>
+              <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 →</button>
+            </div>
             <div style="display:flex;gap:10px">
               <div class="benefit-icon" style="background:${_dashCatColor(b.category)}20;flex-shrink:0">${_dashCatIcon(b.category)}</div>
               <div style="flex:1;min-width:0">
@@ -94,13 +98,9 @@ function renderDashboard() {
               </div>
             </div>
             ${_dashSimplified[sid] ? `<div class="ws-easy">🟢 <b>쉬운 설명</b><br>${esc(_dashSimplified[sid])}</div>` : ''}
-            <div class="ws-detail-row">
-              <button class="ws-detail" onclick="_dashSimplify('${_jsStr(sid)}')">🪄 쉬운 말로</button>
-              <button class="ws-detail" onclick="window.open('${esc(b.apply_url || 'https://www.bokjiro.go.kr')}','_blank')">자세히 보기 →</button>
-            </div>
             <div class="ws-status-row">
-              <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 받는 중</button>
-              <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심</button>
+              <button class="ws-btn recv ${st==='receiving'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','receiving')">✅ 수급중</button>
+              <button class="ws-btn intr ${st==='interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','interested')">⭐ 관심있음</button>
               <button class="ws-btn noint ${st==='not_interested'?'on':''}" onclick="setBenefitStatus('${_jsStr(sid)}','not_interested')">✖ 관심없음</button>
             </div>
           </div>`;

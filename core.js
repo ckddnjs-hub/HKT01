@@ -252,7 +252,6 @@ function renderProfilePage() {
             <button class="btn btn-sm ${fs === 20 ? 'btn-primary' : 'btn-outline'}" onclick="setFontScale(20)">더크게</button>
           </div>
         </div>
-        ${pushOn ? `<button class="btn btn-outline btn-full" style="margin-top:6px" onclick="sendTestPush()">🧪 테스트 알림 보내기</button>` : ''}
       </div>
 
       <div style="height:100px"></div>

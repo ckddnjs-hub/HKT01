@@ -414,7 +414,7 @@ async function sendTestPush() {
     const r = await fetch('/api/push/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: sub, title: '복지혜택 AI 🔔', body: '알림이 정상적으로 작동합니다!', url: '/' }),
+      body: JSON.stringify({ subscription: sub, title: '복지마중 🔔', body: '알림이 정상적으로 작동합니다!', url: '/' }),
     });
     const d = await r.json().catch(() => ({}));
     if (r.ok && d.sent) toast('테스트 알림을 보냈어요 🔔', 'success');

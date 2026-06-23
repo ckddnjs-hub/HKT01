@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   try {
     webpush.setVapidDetails('mailto:noreply@hkt-welfare.app', VAPID_PUBLIC, PRIVATE);
 
-    const { subscription, subscriptions, title = '복지혜택 AI 알림', body = '', url = '/' } = req.body || {};
+    const { subscription, subscriptions, title = '복지마중 알림', body = '', url = '/' } = req.body || {};
     const targets = (subscriptions && subscriptions.length) ? subscriptions : (subscription ? [subscription] : []);
     if (!targets.length) return res.status(400).json({ error: '구독 정보(subscription)가 없습니다.' });
 

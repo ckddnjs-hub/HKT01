@@ -2,7 +2,7 @@
   "name": "hkt-welfare-pwa",
   "version": "1.0.0",
   "private": true,
-  "description": "복지혜택 AI PWA - Vercel serverless dependencies",
+  "description": "복지마중 PWA - Vercel serverless dependencies",
   "dependencies": {
     "web-push": "^3.6.7"
   }

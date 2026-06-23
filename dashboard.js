@@ -172,7 +172,7 @@ async function loadWelfareList() {
       service_id:   s.id || s.name,
       name:         s.name,
       category:     _fieldToCategory(s.field, s.name),
-      description:  (s.content || '').replace(/\r\n|\r|\n/g, ' ').slice(0, 90),
+      description:  _fmtContent(s.content, 280),
       content_full: [s.content, s.target ? `\n\n[지원대상] ${s.target}` : '', s.method ? `\n[신청방법] ${s.method}` : '']
                       .filter(Boolean).join('').replace(/\r\n|\r/g, '\n').slice(0, 600),
       amount:       _extractAmount(s.content),
@@ -398,6 +398,18 @@ function _mapResults(results) {
     source:      r.source || '',
     match_reason: r.match_reason || '',
   }));
+}
+
+// 복지 설명 텍스트 정리: 줄바꿈 보존 + ○ 항목마다 줄바꿈 + 길이 제한
+function _fmtContent(raw = '', max = 280) {
+  let t = String(raw || '')
+    .replace(/\r\n|\r/g, '\n')
+    .replace(/\s*○\s*/g, '\n○ ')   // ○ 목록 항목마다 줄바꿈
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+  if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, '') + '…';
+  return t;
 }
 
 function _extractAmount(content = '') {

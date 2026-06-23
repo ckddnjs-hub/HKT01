@@ -342,9 +342,9 @@ body.light .hero-stat{background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,
   font-size:1rem;flex-shrink:0;background:var(--bg3);
 }
 .benefit-info{flex:1;min-width:0}
-.benefit-name{font-size:.88rem;font-weight:600;margin-bottom:1px;letter-spacing:-.01em}
-.benefit-amount{font-size:.78rem;color:var(--primary);font-weight:600}
-.benefit-how{font-size:.7rem;color:var(--text-muted);margin-top:1px}
+.benefit-name{font-size:.98rem;font-weight:700;margin-bottom:2px;letter-spacing:-.01em;line-height:1.4}
+.benefit-amount{font-size:.86rem;color:var(--primary);font-weight:700}
+.benefit-how{font-size:.86rem;color:var(--text-muted);margin-top:5px;line-height:1.65;white-space:pre-line;word-break:break-word}
 
 /* 추천 혜택 추가 설정 칩 (신청 도움 / 캘린더) */
 .bf-action-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}

@@ -5,6 +5,7 @@
 
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth(); // 0-indexed
+let _calSelectedDate = null;           // 선택한 날짜(YYYY-MM-DD) → 목록 필터
 
 function renderCalendar() {
   const el = document.getElementById('page-calendar');
@@ -65,11 +66,13 @@ function renderCalendar() {
 function _calPrevMonth() {
   _calMonth--;
   if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  _calSelectedDate = null;
   renderCalendar();
 }
 function _calNextMonth() {
   _calMonth++;
   if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  _calSelectedDate = null;
   renderCalendar();
 }
 
@@ -133,6 +136,13 @@ function _renderCalGrid(events) {
     events.filter(e => e.date.getFullYear() === _calYear && e.date.getMonth() === _calMonth)
           .map(e => e.date.getDate())
   );
+  // 내가 등록한 복지 일정이 있는 날 (강조 + 클릭 필터 대상)
+  const planDays = new Set(
+    _loadSchedule()
+      .map(s => new Date(s.date + 'T00:00:00'))
+      .filter(d => !isNaN(d.getTime()) && d.getFullYear() === _calYear && d.getMonth() === _calMonth)
+      .map(d => d.getDate())
+  );
 
   let html = '';
   // 첫 주 빈칸
@@ -140,23 +150,44 @@ function _renderCalGrid(events) {
   // 날짜
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = today.getFullYear() === _calYear && today.getMonth() === _calMonth && today.getDate() === d;
-    const hasEvent = eventDays.has(d);
-    html += `<div class="cal-day ${isToday ? 'today' : ''} ${hasEvent ? 'has-event' : ''}">${d}</div>`;
+    const hasPlan = planDays.has(d);
+    const hasEvent = eventDays.has(d) && !hasPlan;
+    const dateStr = `${_calYear}-${String(_calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const sel = _calSelectedDate === dateStr;
+    html += `<div class="cal-day ${isToday ? 'today' : ''} ${hasPlan ? 'has-plan' : ''} ${hasEvent ? 'has-event' : ''} ${sel ? 'selected' : ''}" onclick="_calSelectDay('${dateStr}')">${d}</div>`;
   }
   return html;
 }
 
+// 날짜 클릭 → 목록 필터 토글
+function _calSelectDay(dateStr) {
+  _calSelectedDate = (_calSelectedDate === dateStr) ? null : dateStr;
+  renderCalendar();
+}
+function _calClearSelect() {
+  _calSelectedDate = null;
+  renderCalendar();
+}
+
 // ── 내가 캘린더에 등록한 복지 혜택 목록 ───────────────────────────────
 function _renderMyList() {
-  const list = _loadSchedule().slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  let list = _loadSchedule().slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (_calSelectedDate) list = list.filter(s => s.date === _calSelectedDate);
+
+  const banner = _calSelectedDate
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px 10px">
+         <span style="font-size:.82rem;font-weight:800;color:var(--primary)">📅 ${_calSelectedDate} 일정</span>
+         <button style="font-size:.74rem;background:none;border:none;color:var(--text-muted);cursor:pointer" onclick="_calClearSelect()">전체 보기 ✕</button>
+       </div>` : '';
+
   if (!list.length) {
-    return `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:.83rem">
-      아직 등록한 복지 혜택이 없어요<br>
-      <button class="btn btn-outline" style="margin-top:14px" onclick="navigateTo('dashboard')">홈에서 혜택 추가하기 →</button>
+    return banner + `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:.83rem">
+      ${_calSelectedDate ? '이 날짜에 등록된 복지 일정이 없어요' : '아직 등록한 복지 혜택이 없어요'}<br>
+      <button class="btn btn-outline" style="margin-top:14px" onclick="${_calSelectedDate ? '_calClearSelect()' : "navigateTo('dashboard')"}">${_calSelectedDate ? '전체 보기' : '홈에서 혜택 추가하기 →'}</button>
     </div>`;
   }
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  return list.map(s => {
+  return banner + list.map(s => {
     const d = new Date(s.date + 'T00:00:00');
     const days = Math.ceil((d - today) / 86400000);
     const dleft = isNaN(days) ? '' : (days > 0 ? `D-${days}` : days === 0 ? 'D-DAY' : `지남`);

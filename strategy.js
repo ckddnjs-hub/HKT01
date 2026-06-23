@@ -6,7 +6,6 @@
 // ══════════════════════════════════════════════════════════════════════
 
 let _stratExpanded   = new Set();   // 펼쳐진 항목 id
-let _stratDetailOpen = new Set();   // "자세히 보기" 펼친 항목 id
 let _stratSimplified = {};          // id → 쉬운 말 결과
 let _stratClassifying = false;
 let _stratPendingSchedule = null;   // 일정 등록 모달 대상 id
@@ -111,7 +110,6 @@ function _renderInterestGrouped(interests, cats, consultSet, schedSet) {
 function _stratItemHTML(i, area, consultSet, schedSet) {
   const id = i.service_id || i.name;
   const open = _stratExpanded.has(id);
-  const detailOpen = _stratDetailOpen.has(id);
   const easy = _stratSimplified[id];
   const hasConsult = consultSet && consultSet.has(i.name);
   const hasSched   = schedSet && schedSet.has(i.name);
@@ -130,15 +128,12 @@ function _stratItemHTML(i, area, consultSet, schedSet) {
       </div>
       ${open ? `
         <div class="intr-body">
-          <div class="intr-btn-row">
-            <button class="intr-easy-btn ${detailOpen?'on':''}" onclick="_stratDetail('${_jsStr(id)}')">📄 자세히 보기</button>
-            <button class="intr-easy-btn" onclick="_stratSimplify('${_jsStr(id)}')">🪄 쉬운 말로 바꾸기</button>
-          </div>
-          ${detailOpen ? `<div class="intr-desc" style="white-space:pre-line">${esc(i.content_full || i.description || '이 혜택에 대한 설명 정보가 아직 없어요.')}</div>` : ''}
+          <div class="intr-desc" style="white-space:pre-line">${esc(i.content_full || i.description || '이 혜택에 대한 설명 정보가 아직 없어요.')}</div>
           ${easy ? `<div class="intr-easy">🟢 <b>쉬운 설명</b><br>${esc(easy)}</div>` : ''}
           <div class="intr-act-row">
-            <button class="intr-act consult" onclick="_stratConsult('${_jsStr(id)}')">📞 도움 필요</button>
-            <button class="intr-act cal" onclick="_stratSchedule('${_jsStr(id)}')">📅 일정 등록</button>
+            <button class="intr-act easy" onclick="_stratSimplify('${_jsStr(id)}')">🪄 쉬운말</button>
+            <button class="intr-act consult" onclick="_stratConsult('${_jsStr(id)}')">📞 도움필요</button>
+            <button class="intr-act cal" onclick="_stratSchedule('${_jsStr(id)}')">📅 일정등록</button>
           </div>
           <button class="intr-remove" onclick="_stratRemoveInterest('${_jsStr(id)}')">관심 해제</button>
         </div>` : ''}
@@ -147,12 +142,6 @@ function _stratItemHTML(i, area, consultSet, schedSet) {
 
 function _stratToggle(id) {
   if (_stratExpanded.has(id)) _stratExpanded.delete(id); else _stratExpanded.add(id);
-  renderStrategy();
-}
-
-// "자세히 보기" 토글 — 복지 혜택 설명 표시
-function _stratDetail(id) {
-  if (_stratDetailOpen.has(id)) _stratDetailOpen.delete(id); else _stratDetailOpen.add(id);
   renderStrategy();
 }
 

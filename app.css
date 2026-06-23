@@ -450,7 +450,7 @@ body.light .chat-bubble.user{color:#fff}
 body.light .chat-bubble.ai{box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .chat-bubble.ai b{color:var(--primary)}
 .chat-input-bar{
-  position:fixed;bottom:calc(78px + env(safe-area-inset-bottom,0px));left:0;right:0;
+  position:fixed;bottom:calc(94px + env(safe-area-inset-bottom,0px));left:0;right:0;
   background:var(--bg);border-top:1px solid var(--border);
   padding:10px 12px;
   display:flex;gap:8px;align-items:flex-end;z-index:201;transition:background .2s;

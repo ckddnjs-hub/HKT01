@@ -10,6 +10,7 @@ let _stratExpanded   = new Set();   // 펼쳐진 항목 id
 let _stratDetailOpen = new Set();   // "자세히 보기" 펼친 항목 id
 let _stratSimplified = {};          // id → 쉬운 말 결과
 let _stratClassifying = false;
+let _stratPendingSchedule = null;   // 일정 등록 모달 대상 id
 
 const STRAT_AREAS = ['주거', '생활', '의료', '교육', '취업', '돌봄'];
 const AREA_ICON   = { 주거:'🏠', 생활:'🍚', 의료:'🏥', 교육:'📚', 취업:'💼', 돌봄:'👶' };
@@ -101,7 +102,6 @@ function _stratItemHTML(i, area) {
   const open = _stratExpanded.has(id);
   const detailOpen = _stratDetailOpen.has(id);
   const easy = _stratSimplified[id];
-  const today = new Date().toISOString().split('T')[0];
 
   return `
     <div class="card intr-card" style="padding:0;margin-bottom:8px">
@@ -123,7 +123,7 @@ function _stratItemHTML(i, area) {
           ${easy ? `<div class="intr-easy">🟢 <b>쉬운 설명</b><br>${esc(easy)}</div>` : ''}
           <div class="intr-act-row">
             <button class="intr-act consult" onclick="_stratConsult('${_jsStr(id)}')">📞 도움 필요</button>
-            <label class="intr-act cal">📅 일정 등록<input type="date" min="${today}" onchange="_stratSchedule('${_jsStr(id)}', this.value)"></label>
+            <button class="intr-act cal" onclick="_stratSchedule('${_jsStr(id)}')">📅 일정 등록</button>
           </div>
           <button class="intr-remove" onclick="_stratRemoveInterest('${_jsStr(id)}')">관심 해제</button>
         </div>` : ''}
@@ -171,16 +171,73 @@ function _stratConsult(id) {
   toast('도움 요청이 등록됐어요 📞 담당자가 안내해드려요', 'success');
 }
 
-// ── 일정 등록(캘린더) ─────────────────────────────────────────────────
-function _stratSchedule(id, date) {
-  if (!date) return;
+// ── 일정 등록(캘린더) — 날짜·시간·알람·메모 입력 모달 ─────────────────
+function _stratSchedule(id) {
   const it = _stratInterests().find(x => (x.service_id || x.name) === id);
   if (!it) return;
+  _stratPendingSchedule = id;
+  const today = new Date().toISOString().split('T')[0];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'strat-sc-modal';
+  overlay.onclick = (e) => { if (e.target === overlay) _stratCloseModal(); };
+  overlay.innerHTML = `
+    <div class="modal-box">
+      <div class="modal-title">📅 일정 등록</div>
+      <div class="modal-sub">${esc(it.name)}</div>
+      <label class="modal-label">날짜</label>
+      <input type="date" id="sc-date" class="pf-input" style="width:100%" value="${today}" min="${today}">
+      <label class="modal-label">시간</label>
+      <input type="time" id="sc-time" class="pf-input" style="width:100%" value="09:00">
+      <label class="modal-label">알람</label>
+      <select id="sc-alarm" class="pf-input" style="width:100%">
+        <option value="none">알람 없음</option>
+        <option value="same">당일 알림</option>
+        <option value="prev">전날 알림</option>
+      </select>
+      <label class="modal-label">메모 (선택)</label>
+      <input type="text" id="sc-memo" class="pf-input" style="width:100%" placeholder="예: 주민센터 방문, 서류 지참">
+      <div class="modal-actions">
+        <button class="btn btn-outline" style="flex:1" onclick="_stratCloseModal()">취소</button>
+        <button class="btn btn-primary" style="flex:1" onclick="_stratConfirmSchedule()">등록</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('sc-date')?.focus(), 80);
+}
+
+function _stratConfirmSchedule() {
+  const id = _stratPendingSchedule;
+  const it = _stratInterests().find(x => (x.service_id || x.name) === id);
+  if (!it) { _stratCloseModal(); return; }
+
+  const date  = document.getElementById('sc-date')?.value;
+  const time  = document.getElementById('sc-time')?.value || '';
+  const alarm = document.getElementById('sc-alarm')?.value || 'none';
+  const memo  = document.getElementById('sc-memo')?.value.trim() || '';
+  if (!date) { toast('날짜를 선택해주세요', 'error'); return; }
+
   const items = _navGetSchedule();
-  if (items.find(x => x.name === it.name && x.date === date)) { toast('이미 등록된 일정이에요', 'info'); return; }
-  items.push({ id: Date.now(), name: it.name, amount: it.amount || '', desc: it.description || '', date });
+  if (items.find(x => x.name === it.name && x.date === date && x.time === time)) {
+    toast('이미 등록된 일정이에요', 'info'); _stratCloseModal(); return;
+  }
+  items.push({
+    id: Date.now(),
+    name:   it.name,
+    amount: it.amount || '',
+    date, time, alarm, memo,
+    desc:   memo || it.description || '',
+  });
   _navSetSchedule(items);
-  toast('캘린더에 일정을 등록했어요 📅', 'success');
+  _stratCloseModal();
+  const alarmTxt = alarm === 'same' ? ' (당일 알림)' : alarm === 'prev' ? ' (전날 알림)' : '';
+  toast(`캘린더에 일정을 등록했어요 📅${alarmTxt}`, 'success');
+}
+
+function _stratCloseModal() {
+  document.getElementById('strat-sc-modal')?.remove();
+  _stratPendingSchedule = null;
 }
 
 // ── 관심 해제 ─────────────────────────────────────────────────────────

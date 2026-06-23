@@ -39,7 +39,7 @@ function renderChat() {
         onclick="switchChatTab('gov')">🏛️ 복지로 검색</button>
     </div>
     <div class="chat-messages" id="chat-messages"></div>
-    <div style="height:calc(140px + env(safe-area-inset-bottom,0px))"></div>
+    <div style="height:calc(170px + env(safe-area-inset-bottom,0px))"></div>
     <div class="chat-input-bar">
       <textarea id="chat-input" class="chat-input" rows="1"
         placeholder="${_chatTab === 'gov' ? '예: 나한테 맞는 복지 혜택 알려줘' : '예: 출산 후 받을 수 있는 혜택 알려줘'}"

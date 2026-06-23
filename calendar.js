@@ -157,7 +157,9 @@ function _renderMyList() {
     const d = new Date(s.date + 'T00:00:00');
     const days = Math.ceil((d - today) / 86400000);
     const dleft = isNaN(days) ? '' : (days > 0 ? `D-${days}` : days === 0 ? 'D-DAY' : `지남`);
-    const memo = [s.amount, s.desc].filter(Boolean).join(' · ') || '직접 등록';
+    const timeTxt  = s.time ? `🕘 ${s.time}` : '';
+    const memo     = [timeTxt, s.memo || s.desc].filter(Boolean).join(' · ') || '직접 등록';
+    const alarmTxt = s.alarm === 'same' ? '🔔 당일' : s.alarm === 'prev' ? '🔔 전날' : '';
     return `
     <div class="event-item">
       <div class="event-date-badge">
@@ -167,6 +169,7 @@ function _renderMyList() {
       <div style="flex:1">
         <div class="event-title" style="color:#2eaadc">${esc(s.name)}</div>
         <div class="event-desc">${esc(memo)}</div>
+        ${alarmTxt ? `<div style="font-size:.7rem;color:var(--accent);font-weight:700;margin-top:2px">${alarmTxt} 알림</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="badge ${days < 0 ? 'badge-purple' : days <= 7 ? 'badge-red' : 'badge-green'}" style="font-size:.65rem">${dleft}</div>
